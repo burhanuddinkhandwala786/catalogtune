@@ -44,7 +44,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Auto Smart UQC Engine Active</span>
+            <span>Official Invoice Matching Engine Active</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="Settings">
@@ -119,7 +119,7 @@
           <div class="flex justify-between items-center text-xs font-medium text-slate-600">
             <span id="progress-status" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
-              Extracting Items & Auto-Detecting UQC Units...
+              Extracting Items & Matching Official Company Specs...
             </span>
             <span id="progress-percent" class="font-bold text-slate-900">0%</span>
           </div>
@@ -141,7 +141,7 @@
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 class="font-semibold text-slate-900 text-sm">Accountune Inventory Import Preview</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> 100% unique items with auto-detected GST UQC units</p>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items mapped with official company item names & SKUs</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
@@ -154,8 +154,8 @@
             <thead class="sticky top-0 bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider">
               <tr>
                 <th class="p-3.5">Category</th>
-                <th class="p-3.5">100% Unique Item Name</th>
-                <th class="p-3.5">Item Code</th>
+                <th class="p-3.5">Official Company Item Name</th>
+                <th class="p-3.5">Item Code / SKU</th>
                 <th class="p-3.5">HSN Code</th>
                 <th class="p-3.5">Price (₹)</th>
                 <th class="p-3.5">GST Rate (%)</th>
@@ -173,7 +173,7 @@
   </div>
 
   <footer class="py-5 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white">
-    CatalogTune — Verified 27-Column CSV Format for Accountune Bulk Import
+    CatalogTune — Official Purchase Bill Matching Engine for Accountune Bulk Import
   </footer>
 
   <script>
@@ -308,7 +308,6 @@
     function detectSmartUnit(name) {
       const s = name.toLowerCase();
 
-      // 1. Meters / Profiles / Tracks / Channels / Gola / Runners
       if (
         s.includes("profile") || 
         s.includes("track") || 
@@ -320,7 +319,6 @@
         return "MTR - (METERS)";
       }
 
-      // 2. Sets / Combipacks / Pairs / Door Handles / Hinges / Systems
       if (
         s.includes("set") || 
         s.includes("combipack") || 
@@ -335,7 +333,6 @@
         return "SET - (SETS)";
       }
 
-      // 3. Boxes / Dowels / Screws / Connectors / Brackets / End Caps
       if (
         s.includes("dowel") || 
         s.includes("screw") || 
@@ -348,12 +345,10 @@
         return "BOX - (BOX)";
       }
 
-      // 4. Bottles / Liquids / Cleaners
       if (s.includes("bottle") || s.includes("liquid") || s.includes("cleaner") || /\b(btl|bottles?)\b/.test(s)) {
         return "BTL - (BOTTLES)";
       }
 
-      // 5. Default Standard Pieces
       return "PCS - (PIECES)";
     }
 
@@ -462,6 +457,7 @@
               const cleanPrice = parseFloat(mrpRaw.replace(/[^\d.]/g, ''));
 
               if (cleanPrice > 10 && cleanPrice !== 2026 && cleanPrice !== parseFloat(sku)) {
+                // Official Godrej Product Name + Finish + Size string sequence
                 const nameParts = texts.filter(t => 
                   t !== mrpRaw && 
                   !/\d{8}SD\d{5}/.test(t) && 
@@ -469,21 +465,15 @@
                   !t.startsWith("(") && !t.endsWith(")")
                 );
 
-                let cleanTitle = nameParts.length ? nameParts.join(' ').replace(/\s+/g, ' ').trim() : "Item " + sku;
+                const officialTitle = nameParts.length ? nameParts.join(' ').replace(/\s+/g, ' ').trim() : "Item " + sku;
 
-                if (sku !== "N/A" && !cleanTitle.includes(`#${sku}`) && !cleanTitle.includes(sku)) {
-                  cleanTitle += ` - #${sku}`;
-                } else if (sku !== "N/A" && cleanTitle.includes(sku) && !cleanTitle.includes(`#${sku}`)) {
-                  cleanTitle = cleanTitle.replace(new RegExp(`\\b${sku}\\b`, 'g'), `#${sku}`);
-                }
-
-                if (cleanTitle.length > 2) {
-                  const category = detectCategory(cleanTitle, fullPageText, currentHSN);
-                  const smartUnit = detectSmartUnit(cleanTitle);
+                if (officialTitle.length > 2) {
+                  const category = detectCategory(officialTitle, fullPageText, currentHSN);
+                  const smartUnit = detectSmartUnit(officialTitle);
 
                   allExtractedItems.push(buildAccountuneRow({
                     category: category,
-                    name: cleanTitle,
+                    name: officialTitle,
                     sku: sku,
                     hsn: currentHSN,
                     price: cleanPrice,
@@ -570,10 +560,6 @@
           let sku = item.itemCode || 'N/A';
           let name = item.itemName || 'Unnamed Product';
 
-          if (sku !== "N/A" && !name.includes(`#${sku}`)) {
-            name += ` - #${sku}`;
-          }
-
           const category = detectCategory(name, "", hsn);
           const smartUnit = detectSmartUnit(name);
 
@@ -610,13 +596,12 @@
 
           let name = line.replace(/[0-9]/g, '').replace(/[\/|-]/g, ' ').trim();
           if (name.length > 3 && price > 10) {
-            let uniqueName = `${name} - #${itemCode}`;
-            const category = detectCategory(uniqueName, "", "83014090");
-            const smartUnit = detectSmartUnit(uniqueName);
+            const category = detectCategory(name, "", "83014090");
+            const smartUnit = detectSmartUnit(name);
 
             allExtractedItems.push(buildAccountuneRow({
               category: category,
-              name: uniqueName,
+              name: name,
               sku: itemCode,
               hsn: "83014090",
               price: price,
@@ -675,8 +660,10 @@
     function getSortedUniqueItems() {
       const uniqueMap = new Map();
       allExtractedItems.forEach(item => {
-        if (!uniqueMap.has(item["Name"])) {
-          uniqueMap.set(item["Name"], item);
+        // Primary deduplication key is Item Code (SKU). Fallback to Name.
+        const key = (item["Item Code"] && item["Item Code"] !== "N/A") ? item["Item Code"] : item["Name"];
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, item);
         }
       });
 
@@ -731,7 +718,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', 'Accountune_Category_Sorted_Master.csv');
+      link.setAttribute('download', 'Accountune_Bulk_Import_Master.csv');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
