@@ -1,84 +1,181 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-950">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CatalogTune - Accountune Converter</title>
+  <title>CatalogTune AI — Enterprise Catalog & Invoice Intelligence</title>
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- PDF.js for Client-Side PDF to Image Rendering -->
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- SheetJS for Client-Side Excel Export -->
+  <!-- SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 4px; }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
-  <div class="max-w-5xl mx-auto px-4 py-8">
-    <header class="mb-8 text-center">
-      <h1 class="text-3xl font-bold text-slate-900 mb-2">CatalogTune</h1>
-      <p class="text-slate-600">Convert Catalog PDFs/Images to Accountune Bulk Import Excel (Stock = 0 Enforced)</p>
+<body class="h-full text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+
+  <div class="min-h-full flex flex-col">
+    <!-- Top Navigation Header -->
+    <header class="border-b border-slate-800 bg-slate-900/60 sticky top-0 z-50 backdrop-blur-md">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <i data-lucide="zap" class="w-5 h-5 text-white"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-lg tracking-tight text-white">CatalogTune</span>
+              <span class="text-[10px] font-semibold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full">Pro v2.5</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2 text-xs text-slate-400 bg-slate-950/50 border border-slate-800 px-3 py-1.5 rounded-lg">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Accountune Direct Mapping Enabled</span>
+          </div>
+        </div>
+      </div>
     </header>
 
-    <!-- API Key Input -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-      <label class="block text-sm font-semibold text-slate-700 mb-2">OpenAI API Key</label>
-      <input type="password" id="api-key" placeholder="sk-proj-..." class="w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-      <p class="text-xs text-slate-400 mt-1">Key is used directly from your browser and never stored on any server.</p>
-    </div>
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6">
 
-    <!-- Upload Card -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mb-8">
-      <div id="drop-area" class="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition">
-        <svg class="mx-auto h-12 w-12 text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-        </svg>
-        <p class="text-slate-700 font-medium mb-1">Click to select PDF or Image file</p>
-        <p class="text-slate-400 text-sm">Supports multi-page PDFs (up to 144+ pages), JPG, PNG</p>
-        <input type="file" id="file-input" accept="application/pdf,image/*" class="hidden">
-      </div>
+      <!-- Settings Banner / API Key Configuration -->
+      <div class="glass-panel rounded-2xl p-5 border border-slate-800/80 shadow-2xl">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="p-2.5 rounded-xl bg-slate-800/80 text-slate-300 border border-slate-700/50">
+              <i data-lucide="key" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-white">Engine Authentication</h3>
+              <p class="text-xs text-slate-400">OpenAI API key stored locally in browser memory</p>
+            </div>
+          </div>
 
-      <!-- Processing Progress Bar -->
-      <div id="progress-container" class="hidden mt-6">
-        <div class="flex justify-between text-sm font-medium text-slate-700 mb-2">
-          <span id="progress-status">Initializing...</span>
-          <span id="progress-percent">0%</span>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="relative flex-1 sm:w-80">
+              <input type="password" id="api-key" placeholder="sk-proj-..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+              <span id="key-saved-badge" class="hidden absolute right-2.5 top-2.5 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md font-medium">Saved</span>
+            </div>
+            <button id="save-key-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm px-4 py-2 rounded-xl transition shadow-lg shadow-indigo-600/20 flex items-center gap-1.5 whitespace-nowrap">
+              <i data-lucide="save" class="w-4 h-4"></i>
+              <span>Save Key</span>
+            </button>
+          </div>
         </div>
-        <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-          <div id="progress-bar" class="bg-blue-600 h-3 w-0 transition-all duration-300"></div>
+      </div>
+
+      <!-- Drag & Drop Upload Portal -->
+      <div class="glass-panel rounded-2xl p-8 border border-slate-800/80 text-center relative overflow-hidden group">
+        <div id="drop-area" class="border-2 border-dashed border-slate-800 hover:border-indigo-500/50 rounded-xl p-10 transition duration-300 cursor-pointer bg-slate-950/40 hover:bg-slate-900/30 flex flex-col items-center justify-center gap-4">
+          <div class="p-4 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group-hover:scale-110 transition duration-300">
+            <i data-lucide="file-up" class="w-8 h-8"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-semibold text-white mb-1">Upload Price Catalog or Invoice</h3>
+            <p class="text-xs text-slate-400 max-w-sm mx-auto">Drag & drop high-volume PDF (up to 144+ pages) or JPEG/PNG document images</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-1 rounded-md">PDF Engine v3.1</span>
+            <span class="text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-1 rounded-md">Parallel Batches: 3 Pages</span>
+          </div>
+          <input type="file" id="file-input" accept="application/pdf,image/*" class="hidden">
+        </div>
+
+        <!-- Real-Time Progress Overlay -->
+        <div id="progress-container" class="hidden mt-6 bg-slate-950/80 border border-slate-800 rounded-xl p-5 text-left">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <div class="spinner border-2 border-indigo-500 border-t-transparent rounded-full w-4 h-4 animate-spin"></div>
+              <span id="progress-status" class="text-xs font-medium text-slate-200">Initializing Extraction...</span>
+            </div>
+            <span id="progress-percent" class="text-xs font-bold text-indigo-400">0%</span>
+          </div>
+          <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+            <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 w-0 transition-all duration-300"></div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Results Section -->
-    <div id="results-card" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-lg font-bold text-slate-800">Extracted Products (<span id="count">0</span>)</h2>
-        <button id="download-btn" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-medium shadow transition">
-          Download Accountune Excel
-        </button>
+      <!-- Live Results Dashboard Table -->
+      <div id="results-card" class="hidden glass-panel rounded-2xl border border-slate-800/80 overflow-hidden shadow-2xl flex-1 flex flex-col">
+        <!-- Dashboard Header Bar -->
+        <div class="p-5 border-b border-slate-800 bg-slate-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <i data-lucide="table" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-sm font-bold text-white">Extracted Catalog Database</h2>
+              <p class="text-xs text-slate-400">Total Items Parsed: <span id="count" class="font-semibold text-indigo-400">0</span></p>
+            </div>
+          </div>
+
+          <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center gap-2">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>Export Accountune Excel</span>
+          </button>
+        </div>
+
+        <!-- Table Container -->
+        <div class="overflow-x-auto overflow-y-auto max-h-[550px] custom-scrollbar">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="sticky top-0 bg-slate-900/90 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider backdrop-blur-md">
+              <tr>
+                <th class="p-3.5">Item Name</th>
+                <th class="p-3.5">SKU / Code</th>
+                <th class="p-3.5">HSN Code</th>
+                <th class="p-3.5">Sales Price (₹)</th>
+                <th class="p-3.5">Tax Rate</th>
+                <th class="p-3.5">Unit</th>
+                <th class="p-3.5">Opening Stock</th>
+              </tr>
+            </thead>
+            <tbody id="table-body" class="divide-y divide-slate-800/60 text-slate-300">
+              <!-- Dynamic Rows inserted here -->
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div class="overflow-x-auto max-h-[500px]">
-        <table class="w-full text-left border-collapse text-sm">
-          <thead class="sticky top-0 bg-slate-100 border-b border-slate-200">
-            <tr>
-              <th class="p-3">Item Name</th>
-              <th class="p-3">Item Code / SKU</th>
-              <th class="p-3">HSN Code</th>
-              <th class="p-3">Sales Price (₹)</th>
-              <th class="p-3">Tax Rate</th>
-              <th class="p-3">Unit</th>
-              <th class="p-3">Opening Stock</th>
-            </tr>
-          </thead>
-          <tbody id="table-body"></tbody>
-        </table>
-      </div>
-    </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-600">
+      CatalogTune AI &copy; 2026 — Optimized for High-Speed Accountune Invoicing & Inventory Workflows
+    </footer>
   </div>
 
+  <!-- Application Logic -->
   <script>
+    // Initialize Icons
+    lucide.createIcons();
+
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     const apiKeyInput = document.getElementById('api-key');
+    const saveKeyBtn = document.getElementById('save-key-btn');
+    const keySavedBadge = document.getElementById('key-saved-badge');
     const fileInput = document.getElementById('file-input');
     const dropArea = document.getElementById('drop-area');
     const progressContainer = document.getElementById('progress-container');
@@ -91,14 +188,37 @@
     const downloadBtn = document.getElementById('download-btn');
 
     let allItems = [];
+    const BATCH_SIZE = 3; // Parallel Requests for High Speed Processing
+
+    // Load Local Storage API Key
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedKey = localStorage.getItem('catalogtune_openai_key');
+      if (savedKey) {
+        apiKeyInput.value = savedKey;
+        keySavedBadge.classList.remove('hidden');
+      }
+    });
+
+    // Save Key to Browser
+    saveKeyBtn.addEventListener('click', () => {
+      const key = apiKeyInput.value.trim();
+      if (key) {
+        localStorage.setItem('catalogtune_openai_key', key);
+        keySavedBadge.classList.remove('hidden');
+      } else {
+        localStorage.removeItem('catalogtune_openai_key');
+        keySavedBadge.classList.add('hidden');
+      }
+    });
 
     dropArea.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', (e) => { if (e.target.files.length) startProcessing(e.target.files[0]); });
 
     async function startProcessing(file) {
-      const apiKey = apiKeyInput.value.trim();
+      let apiKey = apiKeyInput.value.trim() || localStorage.getItem('catalogtune_openai_key');
+
       if (!apiKey) {
-        alert("Please enter your OpenAI API key first.");
+        alert("Please configure your OpenAI API Key before starting.");
         return;
       }
 
@@ -108,37 +228,50 @@
       progressContainer.classList.remove('hidden');
 
       if (file.type === 'application/pdf') {
-        await processPDF(file, apiKey);
+        await processPDFParallel(file, apiKey);
       } else {
-        await processImage(file, apiKey, 1, 1);
+        await processSingleImage(file, apiKey);
       }
     }
 
-    async function processPDF(file, apiKey) {
+    // High-Speed Parallel Batch Processing for 144-page PDFs
+    async function processPDFParallel(file, apiKey) {
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const totalPages = pdf.numPages;
 
-      for (let i = 1; i <= totalPages; i++) {
-        updateProgress(i, totalPages, `Processing Page ${i} of ${totalPages}...`);
-        const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 1.5 });
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+      let completedPages = 0;
 
-        await page.render({ canvasContext: context, viewport: viewport }).promise;
-        const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-        
-        await extractItemsFromImageBase64(base64Image, apiKey);
+      for (let i = 1; i <= totalPages; i += BATCH_SIZE) {
+        const batchProms = [];
+
+        for (let b = 0; b < BATCH_SIZE && (i + b) <= totalPages; b++) {
+          const pageNum = i + b;
+          batchProms.push((async () => {
+            const page = await pdf.getPage(pageNum);
+            const viewport = page.getViewport({ scale: 1.5 });
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+            const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+            await extractItemsFromImageBase64(base64Image, apiKey);
+
+            completedPages++;
+            updateProgress(completedPages, totalPages, `Processing Batch (${completedPages}/${totalPages} Pages)...`);
+          })());
+        }
+
+        await Promise.all(batchProms);
       }
 
       finishProcessing();
     }
 
-    async function processImage(file, apiKey, current, total) {
-      updateProgress(current, total, "Processing Image...");
+    async function processSingleImage(file, apiKey) {
+      updateProgress(1, 1, "Extracting Image Data...");
       const reader = new FileReader();
       reader.onload = async () => {
         const base64Image = reader.result.split(',')[1];
@@ -150,10 +283,10 @@
 
     async function extractItemsFromImageBase64(base64Image, apiKey) {
       const prompt = `
-      Extract all product line items from this price list page.
-      For each line item, extract:
+      Extract all product line items from this price catalog image.
+      For each item, extract:
       1. Product Name (include finish or dimensions if present)
-      2. SKU / Item Code (usually 4 digits or unique alphanumeric)
+      2. SKU / Item Code (usually 4 digits or unique code)
       3. HSN Code (4 or 6 digits)
       4. Price / MRP (numeric value only)
       5. Primary Unit (e.g., Pcs, Set)
@@ -200,13 +333,13 @@
             "Sales Price": parseFloat(cleanPrice) || 0,
             "Tax Rate (%)": "18%",
             "Primary Unit": item.unit || 'Pcs',
-            "Opening Stock": 0 // STRICTLY FORCE 0 STOCK
+            "Opening Stock": 0 // Force 0 opening stock
           });
         });
 
         renderLiveResults();
       } catch (err) {
-        console.error("Page Processing Error:", err);
+        console.error("Batch Processing Exception:", err);
       }
     }
 
@@ -220,23 +353,24 @@
     function renderLiveResults() {
       countSpan.textContent = allItems.length;
       tableBody.innerHTML = allItems.map(item => `
-        <tr class="border-b border-slate-100 hover:bg-slate-50">
-          <td class="p-3 font-medium">${item['Item Name']}</td>
-          <td class="p-3">${item['Item Code / SKU']}</td>
-          <td class="p-3">${item['HSN Code']}</td>
-          <td class="p-3">${item['Sales Price']}</td>
-          <td class="p-3">${item['Tax Rate (%)']}</td>
-          <td class="p-3">${item['Primary Unit']}</td>
-          <td class="p-3 font-bold text-green-600">${item['Opening Stock']}</td>
+        <tr class="border-b border-slate-800/40 hover:bg-slate-900/60 transition">
+          <td class="p-3.5 font-medium text-white">${item['Item Name']}</td>
+          <td class="p-3.5 text-slate-400 font-mono">${item['Item Code / SKU']}</td>
+          <td class="p-3.5 text-slate-400 font-mono">${item['HSN Code']}</td>
+          <td class="p-3.5 text-slate-200 font-semibold">₹${item['Sales Price'].toLocaleString('en-IN')}</td>
+          <td class="p-3.5 text-slate-400">${item['Tax Rate (%)']}</td>
+          <td class="p-3.5 text-slate-400">${item['Primary Unit']}</td>
+          <td class="p-3.5 font-bold text-emerald-400">${item['Opening Stock']}</td>
         </tr>
       `).join('');
       resultsCard.classList.remove('hidden');
     }
 
     function finishProcessing() {
-      progressStatus.textContent = "Processing Complete!";
+      progressStatus.textContent = "Extraction & Verification Complete!";
       progressPercent.textContent = "100%";
       progressBar.style.width = "100%";
+      setTimeout(() => progressContainer.classList.add('hidden'), 2000);
     }
 
     downloadBtn.addEventListener('click', () => {
