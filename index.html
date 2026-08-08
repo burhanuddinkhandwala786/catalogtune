@@ -40,7 +40,7 @@
         <div class="flex items-center gap-3">
           <div class="hidden sm:flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Accountune Ready</span>
+            <span>MRP Incl. Tax Auto-Mapped</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative">
@@ -129,7 +129,7 @@
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 class="font-semibold text-slate-900 text-sm">Extracted Products</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items ready for Accountune</p>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items ready for Accountune (Sales Price = MRP Incl. Tax)</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
@@ -144,7 +144,7 @@
                 <th class="p-3.5">Item Name</th>
                 <th class="p-3.5">SKU / Code</th>
                 <th class="p-3.5">HSN Code</th>
-                <th class="p-3.5">Price (₹)</th>
+                <th class="p-3.5">Sales Price (MRP)</th>
                 <th class="p-3.5">Tax Rate</th>
                 <th class="p-3.5">Unit</th>
                 <th class="p-3.5">Stock</th>
@@ -284,10 +284,7 @@
           await page.render({ canvasContext: context, viewport: viewport }).promise;
           const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
 
-          // Fetch with Auto-Retry
           await extractWithRetry(base64Image, apiKey, 3);
-
-          // Small delay to prevent OpenAI API Rate Limit / Network Throttling
           await delay(300);
         }
       } catch (err) {
@@ -313,14 +310,13 @@
       for (let attempt = 1; attempt <= retries; attempt++) {
         try {
           await extractItemsFromImageBase64(base64Image, apiKey);
-          return; // Success
+          return;
         } catch (err) {
           if (attempt === retries) {
             console.error("Max retries reached for page:", err);
             showError(`Skipped page due to network error: ${err.message}`);
           } else {
-            console.warn(`Attempt ${attempt} failed. Retrying in 2 seconds...`);
-            await delay(2000); // Pause before retry
+            await delay(2000);
           }
         }
       }
@@ -333,7 +329,7 @@
       1. Product Name (include finish or dimensions if present)
       2. SKU / Item Code (usually 4 digits or unique code)
       3. HSN Code (4 or 6 digits)
-      4. Price / MRP (numeric value only)
+      4. Price / MRP (numeric value only, inclusive of taxes)
       5. Primary Unit (e.g., Pcs, Set)
 
       Return STRICTLY a JSON object with key "items" containing an array of objects with keys:
@@ -377,10 +373,10 @@
           "Item Name": item.itemName || 'Unnamed Product',
           "Item Code / SKU": item.itemCode || 'N/A',
           "HSN Code": hsn || '83014090',
-          "Sales Price": parseFloat(cleanPrice) || 0,
-          "Tax Rate (%)": "18%",
+          "Sales Price": parseFloat(cleanPrice) || 0, // Billed as MRP
+          "Tax Rate (%)": "18%",                     // Standard GST Rate
           "Primary Unit": item.unit || 'Pcs',
-          "Opening Stock": 0
+          "Opening Stock": 0                          // Kept 0 for order-based inventory
         });
       });
 
