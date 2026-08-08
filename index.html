@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CatalogTune — Minimalist Accountune Converter</title>
+  <title>CatalogTune Pro — Accountune Bulk Import Generator</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -13,6 +13,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- PDF-Lib & PDF.js for Client-Side Chunking -->
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- SheetJS -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="h-full text-slate-800 antialiased selection:bg-slate-900 selection:text-white flex flex-col justify-between">
 
@@ -24,12 +29,12 @@
           <div class="h-8 w-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-sm">
             CT
           </div>
-          <span class="font-bold text-base text-slate-900 tracking-tight">CatalogTune</span>
+          <span class="font-bold text-base text-slate-900 tracking-tight">CatalogTune Engine</span>
         </div>
 
         <div class="flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          <span>Accountune Import Engine Ready</span>
+          <span>Chunked Stream Mode Active</span>
         </div>
       </div>
     </header>
@@ -61,10 +66,21 @@
           <input type="file" id="file-input" accept="application/pdf" class="hidden">
         </div>
 
-        <!-- Processing Indicator -->
-        <div id="loading" class="hidden py-8 space-y-3">
-          <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-900 border-t-transparent"></div>
-          <p class="text-xs font-medium text-slate-700">Extracting tables across all pages natively...</p>
+        <!-- Progress Indicator Bar -->
+        <div id="progress-container" class="hidden text-left space-y-3 py-4">
+          <div class="flex justify-between items-center text-xs font-medium text-slate-600">
+            <span id="progress-status">Preparing document chunks...</span>
+            <span id="progress-percent" class="font-bold text-slate-900">0%</span>
+          </div>
+
+          <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+            <div id="progress-bar" class="bg-slate-900 h-2 w-0 transition-all duration-300"></div>
+          </div>
+
+          <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+            <span>Pages Processed: <b id="pages-stat" class="text-slate-800">0/0</b></span>
+            <span>Items Found: <b id="items-stat" class="text-emerald-600">0</b></span>
+          </div>
         </div>
       </div>
 
@@ -80,12 +96,20 @@
 
     const fileInput = document.getElementById('file-input');
     const dropArea = document.getElementById('drop-area');
-    const loading = document.getElementById('loading');
+    const progressContainer = document.getElementById('progress-container');
+    const progressStatus = document.getElementById('progress-status');
+    const progressPercent = document.getElementById('progress-percent');
+    const progressBar = document.getElementById('progress-bar');
+    const pagesStat = document.getElementById('pages-stat');
+    const itemsStat = document.getElementById('items-stat');
     const errorBox = document.getElementById('error-box');
     const errorMessage = document.getElementById('error-message');
 
+    const CHUNK_SIZE = 10; // Send 10 pages per micro-request to guarantee zero timeouts
+    let accumulatedItems = [];
+
     dropArea.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => { if (e.target.files.length) uploadFile(e.target.files[0]); });
+    fileInput.addEventListener('change', (e) => { if (e.target.files.length) processPdfInChunks(e.target.files[0]); });
 
     function showError(msg) {
       errorMessage.textContent = msg;
@@ -96,45 +120,93 @@
       errorBox.classList.add('hidden');
     }
 
-    async function uploadFile(file) {
+    async function processPdfInChunks(file) {
       hideError();
+      accumulatedItems = [];
       dropArea.classList.add('hidden');
-      loading.classList.remove('hidden');
+      progressContainer.classList.remove('hidden');
 
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result.split(',')[1];
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+        const totalPages = pdfDoc.getPageCount();
 
-        try {
+        for (let startPage = 0; startPage < totalPages; startPage += CHUNK_SIZE) {
+          const endPage = Math.min(startPage + CHUNK_SIZE, totalPages);
+          
+          updateProgress(endPage, totalPages, `Processing pages ${startPage + 1}–${endPage} of ${totalPages}...`);
+
+          // Create a micro 10-page PDF chunk
+          const chunkPdf = await PDFLib.PDFDocument.create();
+          const pageIndices = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
+          const copiedPages = await chunkPdf.copyPages(pdfDoc, pageIndices);
+          copiedPages.forEach(page => chunkPdf.addPage(page));
+
+          const chunkBase64 = await chunkPdf.saveAsBase64();
+
+          // Send chunk to Netlify function
           const response = await fetch('/.netlify/functions/process-catalog', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fileBase64: base64 })
+            body: JSON.stringify({ fileBase64: chunkBase64 })
           });
 
-          const data = await response.json();
-
-          if (!response.ok || data.error) {
-            throw new Error(data.error || 'Extraction failed');
+          if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Server returned error on chunk ${startPage / CHUNK_SIZE + 1}: ${response.status}`);
           }
 
-          // Trigger Direct File Download
-          const link = document.createElement('a');
-          link.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + data.excelBase64;
-          link.download = 'Accountune_Bulk_Import_Master.xlsx';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          const data = await response.json();
+          if (data.error) throw new Error(data.error);
 
-        } catch (err) {
-          showError(err.message);
-        } finally {
-          loading.classList.add('hidden');
-          dropArea.classList.remove('hidden');
+          if (data.items && data.items.length) {
+            accumulatedItems.push(...data.items);
+            itemsStat.textContent = accumulatedItems.length;
+          }
         }
-      };
 
-      reader.readAsDataURL(file);
+        // Deduplicate items by SKU
+        const uniqueItemsMap = new Map();
+        accumulatedItems.forEach(item => {
+          if (!uniqueItemsMap.has(item["Item Code / SKU"])) {
+            uniqueItemsMap.set(item["Item Code / SKU"], item);
+          }
+        });
+
+        const finalItems = Array.from(uniqueItemsMap.values());
+
+        if (!finalItems.length) {
+          throw new Error("Extraction complete, but no valid items were found.");
+        }
+
+        progressStatus.textContent = "Generating Accountune Excel Master...";
+        
+        // Export Excel File
+        const worksheet = XLSX.utils.json_to_sheet(finalItems);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Accountune_Master");
+        XLSX.writeFile(workbook, "Accountune_Bulk_Import_Master.xlsx");
+
+        progressStatus.textContent = "Download complete!";
+        progressPercent.textContent = "100%";
+        progressBar.style.width = "100%";
+
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        setTimeout(() => {
+          progressContainer.classList.add('hidden');
+          dropArea.classList.remove('hidden');
+        }, 3000);
+      }
+    }
+
+    function updateProgress(current, total, text) {
+      const percentage = Math.round((current / total) * 100);
+      progressStatus.textContent = text;
+      progressPercent.textContent = `${percentage}%`;
+      progressBar.style.width = `${percentage}%`;
+      pagesStat.textContent = `${current}/${total}`;
     }
   </script>
 </body>
