@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CatalogTune Engine — Accountune Bulk Import Generator</title>
+  <title>CatalogTune Engine — Universal Accountune Bulk Import Generator</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -44,7 +44,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Column-Aware Sub-Line Parser Active</span>
+            <span>Universal Dynamic PDF & Image Parser Active</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="Settings">
@@ -105,8 +105,8 @@
           <div class="h-12 w-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mb-4 group-hover:bg-slate-900 group-hover:text-white transition-all duration-300 shadow-sm">
             <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
           </div>
-          <h2 class="text-base font-semibold text-slate-900 mb-1">Upload Catalog PDF or Image</h2>
-          <p class="text-xs text-slate-500 max-w-sm mb-6">Drop multi-page PDF catalogs or image price sheets to generate an Accountune CSV file</p>
+          <h2 class="text-base font-semibold text-slate-900 mb-1">Upload Any Catalog PDF or Image</h2>
+          <p class="text-xs text-slate-500 max-w-sm mb-6">Drop multi-page PDF catalogs, price lists, or scanned document images to generate an Accountune CSV file</p>
           
           <button class="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs px-5 py-2.5 rounded-xl transition shadow-sm">
             Select Document
@@ -119,7 +119,7 @@
           <div class="flex justify-between items-center text-xs font-medium text-slate-600">
             <span id="progress-status" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
-              Stitching Product Titles & Aligning Columns...
+              Dynamically Extracting Catalog Items...
             </span>
             <span id="progress-percent" class="font-bold text-slate-900">0%</span>
           </div>
@@ -141,7 +141,7 @@
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 class="font-semibold text-slate-900 text-sm">Accountune Inventory Import Preview</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> 100% complete product names ready for Accountune</p>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> unique items extracted dynamically for Accountune</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
@@ -154,7 +154,7 @@
             <thead class="sticky top-0 bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider">
               <tr>
                 <th class="p-3.5">Category</th>
-                <th class="p-3.5">Full Product Name</th>
+                <th class="p-3.5">Dynamic Item Name</th>
                 <th class="p-3.5">Item Code</th>
                 <th class="p-3.5">HSN Code</th>
                 <th class="p-3.5">Price (₹)</th>
@@ -173,7 +173,7 @@
   </div>
 
   <footer class="py-5 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white">
-    CatalogTune — Verified CSV Format for Accountune Bulk Import
+    CatalogTune — Universal Dynamic Catalog Parser for Accountune Bulk Import
   </footer>
 
   <script>
@@ -249,7 +249,7 @@
       errorBox.classList.add('hidden');
     }
 
-    // Category Classification Engine
+    // Dynamic Category Classifier
     function detectCategory(name, pageHeader, hsn) {
       const combined = (name + " " + pageHeader).toLowerCase();
 
@@ -304,7 +304,7 @@
       return "Hardware & Locks";
     }
 
-    // AUTOMATIC ACCOUNTUNE PRIMARY UNIT RESOLVER
+    // Dynamic Accountune Primary Unit Resolver
     function detectSmartUnit(name) {
       const s = name.toLowerCase();
 
@@ -369,6 +369,7 @@
       }
     }
 
+    // Universal Dynamic PDF Spatial Parser
     async function processPdfSpatial(file) {
       try {
         const arrayBuffer = await file.arrayBuffer();
@@ -379,8 +380,7 @@
         let lastSectionTitle = "";
         const defaultStock = parseInt(localStorage.getItem('catalogtune_default_stock') || "0");
 
-        // Skip cover/index (Page 1-3). Start at Page 4.
-        for (let pageNum = 4; pageNum <= totalPages; pageNum++) {
+        for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
           if (isCancelled) {
             progressStatus.textContent = "Stopped by user.";
             break;
@@ -395,6 +395,12 @@
           if (!textContent.items.length) continue;
 
           const fullPageText = textContent.items.map(item => item.str).join(' ');
+          
+          // Skip cover or index pages without price data
+          if (pageNum <= 3 && !/\b\d{3,6}\b/.test(fullPageText)) {
+            continue;
+          }
+
           const hsnMatch = fullPageText.match(/HSN\s*code\s*:\s*(\d+)/i);
           if (hsnMatch) {
             currentHSN = hsnMatch[1];
@@ -430,7 +436,7 @@
             rawRows.push({ y: currentY, items: currentRow });
           }
 
-          // Track prominent section headers (e.g. Supernova, Nuvo)
+          // Track prominent section headers dynamically
           rawRows.forEach(r => {
             const str = r.items.map(x => x.text).join(' ');
             if (r.items.length <= 3 && !str.includes("Product Name") && !str.includes("HSN") && str.length > 3 && str.length < 35) {
@@ -439,6 +445,16 @@
               }
             }
           });
+
+          // DYNAMIC COLUMN BOUNDARY CALCULATION
+          // Determine the median X-coordinate splitting product name from middle specification columns
+          let dynamicColSplitX = 270;
+          const allXCoords = elements.map(e => e.x).sort((a, b) => a - b);
+          if (allXCoords.length > 10) {
+            const minX = allXCoords[0];
+            const maxX = allXCoords[allXCoords.length - 1];
+            dynamicColSplitX = minX + (maxX - minX) * 0.40; // 40% horizontal split
+          }
 
           for (let i = 0; i < rawRows.length; i++) {
             const rObj = rawRows[i];
@@ -471,7 +487,7 @@
               const cleanPrice = parseFloat(mrpRaw.replace(/[^\d.]/g, ''));
 
               if (cleanPrice > 10 && cleanPrice !== 2026 && cleanPrice !== parseFloat(sku)) {
-                // Check if next line directly below (within 12pt) is a sub-line description
+                // Check if next line directly below (within 12pt Y-distance) is a sub-line description
                 let subItems = [];
                 if (i + 1 < rawRows.length) {
                   const nextY = rawRows[i+1].y;
@@ -486,7 +502,7 @@
                   }
                 }
 
-                // Column-aware name stitching: Group left Product Name column (x < 270) vs middle Specs column (x >= 270)
+                // Dynamic Column-Aware Name Stitching
                 const nameColTokens = [];
                 const specColTokens = [];
 
@@ -495,7 +511,7 @@
                   if (t === mrpRaw || t === sku || /\d{8}SD\d{5}/.test(t)) return;
                   if (["(mm)", "(cm)", "(inch)", "Size", "Pcs", "Set"].includes(t)) return;
                   
-                  if (it.x < 270) {
+                  if (it.x < dynamicColSplitX) {
                     nameColTokens.push(t);
                   } else {
                     specColTokens.push(t);
@@ -507,7 +523,7 @@
                   if (t === mrpRaw || t === sku || /\d{8}SD\d{5}/.test(t)) return;
                   if (["(mm)", "(cm)", "(inch)", "Size", "Pcs", "Set"].includes(t)) return;
 
-                  if (it.x < 270) {
+                  if (it.x < dynamicColSplitX) {
                     nameColTokens.push(t);
                   } else {
                     specColTokens.push(t);
