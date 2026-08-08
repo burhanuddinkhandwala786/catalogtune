@@ -44,7 +44,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Multi-Line Title Stitching Engine Active</span>
+            <span>Column-Aware Sub-Line Parser Active</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="Settings">
@@ -119,7 +119,7 @@
           <div class="flex justify-between items-center text-xs font-medium text-slate-600">
             <span id="progress-status" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
-              Extracting Complete Product Titles...
+              Stitching Product Titles & Aligning Columns...
             </span>
             <span id="progress-percent" class="font-bold text-slate-900">0%</span>
           </div>
@@ -141,7 +141,7 @@
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 class="font-semibold text-slate-900 text-sm">Accountune Inventory Import Preview</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items mapped with full product titles</p>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> 100% complete product names ready for Accountune</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
@@ -410,38 +410,40 @@
 
           elements.sort((a, b) => b.y - a.y);
 
-          const rows = [];
+          const rawRows = [];
           let currentY = null;
           let currentRow = [];
 
           elements.forEach(item => {
-            if (currentY === null || Math.abs(item.y - currentY) < 6) {
+            if (currentY === null || Math.abs(item.y - currentY) < 4) {
               currentRow.push(item);
               currentY = item.y;
             } else {
               currentRow.sort((a, b) => a.x - b.x);
-              rows.push(currentRow);
+              rawRows.push({ y: currentY, items: currentRow });
               currentRow = [item];
               currentY = item.y;
             }
           });
           if (currentRow.length) {
             currentRow.sort((a, b) => a.x - b.x);
-            rows.push(currentRow);
+            rawRows.push({ y: currentY, items: currentRow });
           }
 
-          // Track prominent section headers on page (e.g. Supernova, Nuvo, Advantis)
-          rows.forEach(r => {
-            const str = r.map(x => x.text).join(' ');
-            if (r.length <= 3 && !str.includes("Product Name") && !str.includes("HSN") && str.length > 3 && str.length < 35) {
+          // Track prominent section headers (e.g. Supernova, Nuvo)
+          rawRows.forEach(r => {
+            const str = r.items.map(x => x.text).join(' ');
+            if (r.items.length <= 3 && !str.includes("Product Name") && !str.includes("HSN") && str.length > 3 && str.length < 35) {
               if (!/^\d+$/.test(str) && !str.includes("Page")) {
                 lastSectionTitle = str;
               }
             }
           });
 
-          rows.forEach(row => {
-            const texts = row.map(r => r.text);
+          for (let i = 0; i < rawRows.length; i++) {
+            const rObj = rawRows[i];
+            const mainItems = rObj.items;
+            const texts = mainItems.map(r => r.text);
             const rowStr = texts.join(' ');
 
             if (
@@ -456,7 +458,7 @@
               rowStr.includes("W.E.F") ||
               rowStr.includes("Index")
             ) {
-              return;
+              continue;
             }
 
             const hasUNSPSC = texts.some(t => /\d{8}SD\d{5}/.test(t));
@@ -469,38 +471,75 @@
               const cleanPrice = parseFloat(mrpRaw.replace(/[^\d.]/g, ''));
 
               if (cleanPrice > 10 && cleanPrice !== 2026 && cleanPrice !== parseFloat(sku)) {
-                // Filter out UNSPSC and MRP price tokens
-                const initialParts = texts.filter(t => 
-                  t !== mrpRaw && 
-                  !/\d{8}SD\d{5}/.test(t) && 
-                  !["(mm)", "(cm)", "(inch)", "Size", "Pcs", "Set"].includes(t)
-                );
+                // Check if next line directly below (within 12pt) is a sub-line description
+                let subItems = [];
+                if (i + 1 < rawRows.length) {
+                  const nextY = rawRows[i+1].y;
+                  if (Math.abs(rObj.y - nextY) < 14) {
+                    const nextTexts = rawRows[i+1].items.map(x => x.text);
+                    const nextHasSku = nextTexts.some(t => /^\d{4}$/.test(t));
+                    const nextHasPrice = nextTexts.some(t => /^\d{1,3}(?:\s\d{3})*(?:\.\d+)?$/.test(t));
+                    if (!nextHasSku && !nextHasPrice) {
+                      subItems = rawRows[i+1].items;
+                      i++; // Consume sub-line row!
+                    }
+                  }
+                }
 
-                // Omit trailing raw Size column numbers (e.g. 250, 25, 10) if measurement is already in product title
-                const cleanedParts = [];
-                for (let i = 0; i < initialParts.length; i++) {
-                  const tok = initialParts[i];
+                // Column-aware name stitching: Group left Product Name column (x < 270) vs middle Specs column (x >= 270)
+                const nameColTokens = [];
+                const specColTokens = [];
+
+                mainItems.forEach(it => {
+                  const t = it.text;
+                  if (t === mrpRaw || t === sku || /\d{8}SD\d{5}/.test(t)) return;
+                  if (["(mm)", "(cm)", "(inch)", "Size", "Pcs", "Set"].includes(t)) return;
+                  
+                  if (it.x < 270) {
+                    nameColTokens.push(t);
+                  } else {
+                    specColTokens.push(t);
+                  }
+                });
+
+                subItems.forEach(it => {
+                  const t = it.text;
+                  if (t === mrpRaw || t === sku || /\d{8}SD\d{5}/.test(t)) return;
+                  if (["(mm)", "(cm)", "(inch)", "Size", "Pcs", "Set"].includes(t)) return;
+
+                  if (it.x < 270) {
+                    nameColTokens.push(t);
+                  } else {
+                    specColTokens.push(t);
+                  }
+                });
+
+                // Omit trailing raw Size column numbers (e.g. 250, 25, 10) if size is already in nameColTokens
+                const cleanedSpecs = [];
+                for (let k = 0; k < specColTokens.length; k++) {
+                  const tok = specColTokens[k];
                   if (/^\d+$/.test(tok)) {
-                    const prevStr = cleanedParts.join(' ').toLowerCase();
+                    const prevStr = (nameColTokens.join(' ') + " " + cleanedSpecs.join(' ')).toLowerCase();
                     if (prevStr.includes("mm") || prevStr.includes("cm") || prevStr.includes("inch") || prevStr.includes("kg")) {
                       continue;
                     }
                   }
-                  cleanedParts.push(tok);
+                  cleanedSpecs.push(tok);
                 }
 
-                // Strip trailing Std Pkg quantity numbers if present
-                if (cleanedParts.length && /^\d+$/.test(cleanedParts[cleanedParts.length - 1])) {
-                  const lastNum = parseInt(cleanedParts[cleanedParts.length - 1]);
+                // Strip trailing Std Pkg quantity numbers
+                if (cleanedSpecs.length && /^\d+$/.test(cleanedSpecs[cleanedSpecs.length - 1])) {
+                  const lastNum = parseInt(cleanedSpecs[cleanedSpecs.length - 1]);
                   if ([1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 16, 20, 24, 25, 30, 40, 50, 60].includes(lastNum)) {
-                    cleanedParts.pop();
+                    cleanedSpecs.pop();
                   }
                 }
 
-                let cleanTitle = cleanedParts.length ? cleanedParts.join(' ').replace(/\s+/g, ' ').trim() : "Item " + sku;
+                let fullTitleParts = [...nameColTokens, ...cleanedSpecs];
+                let cleanTitle = fullTitleParts.length ? fullTitleParts.join(' ').replace(/\s+/g, ' ').trim() : "Item " + sku;
 
-                // CRITICAL REPAIR: If title starts with a specification like "Up to 35 mm", attach the section header (e.g. "Supernova")
-                if (cleanTitle.toLowerCase().startsWith("up to") || cleanTitle.toLowerCase().startsWith("size") || cleanTitle.length < 15) {
+                // Re-attach section header if product name started with a spec label like "Up to 35 mm"
+                if (cleanTitle.toLowerCase().startsWith("up to") || cleanTitle.toLowerCase().startsWith("size") || nameColTokens.length === 0) {
                   if (lastSectionTitle && !cleanTitle.toLowerCase().includes(lastSectionTitle.toLowerCase())) {
                     cleanTitle = lastSectionTitle + " " + cleanTitle;
                   }
@@ -529,7 +568,7 @@
                 }
               }
             }
-          });
+          }
 
           itemsStat.textContent = allExtractedItems.length;
           renderLiveResults();
