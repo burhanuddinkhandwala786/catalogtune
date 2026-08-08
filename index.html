@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CatalogTune Pro — Accountune Converter</title>
+  <title>CatalogTune Engine — Accountune Converter</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -13,9 +13,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- PDF.js for PDF Text/Image Rendering -->
+  <!-- PDF.js for Client-Side PDF Parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- Tesseract.js for Offline Client-Side OCR -->
+  <!-- Tesseract.js for Browser OCR -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <!-- SheetJS for Excel Generation -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -43,10 +43,10 @@
         <div class="flex items-center gap-3">
           <div class="hidden sm:flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>PDF & Image OCR Active</span>
+            <span>Client-Side Processing Active</span>
           </div>
 
-          <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative">
+          <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="API Settings">
             <i data-lucide="settings" class="w-5 h-5"></i>
             <span id="key-indicator" class="hidden absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full"></span>
           </button>
@@ -63,7 +63,7 @@
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
-        <p class="text-xs text-slate-500 mb-4">Saved in local browser memory. OpenAI key improves vision accuracy for complex image catalogs.</p>
+        <p class="text-xs text-slate-500 mb-4">OpenAI Vision enhances accuracy for image-only pages. If unconfigured, the app falls back to Tesseract OCR.</p>
         
         <div class="space-y-4">
           <div>
@@ -95,8 +95,8 @@
           <div class="h-12 w-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mb-4 group-hover:bg-slate-900 group-hover:text-white transition-all duration-300 shadow-sm">
             <i data-lucide="upload-cloud" class="w-6 h-6"></i>
           </div>
-          <h2 class="text-base font-semibold text-slate-900 mb-1">Upload Catalog PDF or Invoice Image</h2>
-          <p class="text-xs text-slate-500 max-w-sm mb-6">Supports multi-page PDF catalogs, JPEG, PNG, and scanned document images</p>
+          <h2 class="text-base font-semibold text-slate-900 mb-1">Upload Catalog PDF or Image</h2>
+          <p class="text-xs text-slate-500 max-w-sm mb-6">Supports multi-page PDF catalogs, JPEG, PNG, and scanned invoices</p>
           
           <button class="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs px-5 py-2.5 rounded-xl transition shadow-sm">
             Select File
@@ -119,9 +119,9 @@
           </div>
 
           <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-            <span>Pages/Files: <b id="pages-stat" class="text-slate-800">0/0</b></span>
+            <span>Progress: <b id="pages-stat" class="text-slate-800">0/0</b></span>
             <span>Items Found: <b id="items-stat" class="text-emerald-600">0</b></span>
-            <button id="cancel-btn" class="text-rose-500 hover:underline font-medium hidden">Stop Extraction</button>
+            <button id="cancel-btn" class="text-rose-500 hover:underline font-medium hidden">Stop Processing</button>
           </div>
         </div>
       </div>
@@ -131,7 +131,7 @@
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 class="font-semibold text-slate-900 text-sm">Extracted Products</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items ready for Accountune (Opening Stock = 0)</p>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items formatted for Accountune (Opening Stock = 0)</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
@@ -162,13 +162,14 @@
   </div>
 
   <footer class="py-5 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white">
-    CatalogTune — Fast, Compliant Accountune Import Generation
+    CatalogTune Engine — Fast, Compliant Accountune Import Generation
   </footer>
 
   <script>
     lucide.createIcons();
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+    // UI Controls
     const apiKeyInput = document.getElementById('api-key');
     const saveKeyBtn = document.getElementById('save-key-btn');
     const keyIndicator = document.getElementById('key-indicator');
@@ -197,6 +198,7 @@
     let isCancelled = false;
     let ocrWorker = null;
 
+    // Load Local Settings
     window.addEventListener('DOMContentLoaded', () => {
       const savedKey = localStorage.getItem('catalogtune_openai_key');
       if (savedKey) {
@@ -249,7 +251,7 @@
       }
     }
 
-    // PDF Engine (Text + Scanned Fallback)
+    // PDF Processing (Native Text + Image Page Fallback)
     async function processPdfFile(file) {
       try {
         const arrayBuffer = await file.arrayBuffer();
@@ -269,11 +271,10 @@
           const textContent = await page.getTextContent();
           const pageText = textContent.items.map(item => item.str).join(' ').trim();
 
-          // Digital Table Page
           if (pageText.length > 30) {
             parseTextLines(pageText);
           } else {
-            // Scanned Page -> Render Canvas and OCR
+            // Render canvas for scanned pages
             const viewport = page.getViewport({ scale: 1.5 });
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
@@ -287,7 +288,6 @@
               const base64Image = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
               await extractVisionOpenAI(base64Image, apiKey);
             } else {
-              // Tesseract Client OCR Fallback
               if (!ocrWorker) ocrWorker = await Tesseract.createWorker('eng');
               const ret = await ocrWorker.recognize(canvas);
               parseTextLines(ret.data.text);
@@ -295,20 +295,20 @@
           }
         }
       } catch (err) {
-        showError("PDF Error: " + err.message);
+        showError("PDF Extraction Error: " + err.message);
       }
 
       finishProcessing();
     }
 
-    // Single Image File Engine
+    // Single Image File Processing
     async function processImageFile(file) {
       pagesStat.textContent = `1/1`;
       updateProgress(1, 1, "Reading Image File...");
 
       const apiKey = apiKeyInput.value.trim() || localStorage.getItem('catalogtune_openai_key');
-
       const reader = new FileReader();
+
       reader.onload = async () => {
         const base64Image = reader.result.split(',')[1];
 
@@ -324,13 +324,13 @@
       reader.readAsDataURL(file);
     }
 
-    // Direct Vision API Call (Optional OpenAI Key)
+    // OpenAI Vision Processing
     async function extractVisionOpenAI(base64Image, apiKey) {
       const prompt = `
-      Extract all product line items from this price catalog page.
-      For each line item, extract:
+      Extract all product line items from this price catalog image.
+      For each item, extract:
       1. Product Name (include finish or dimensions if present)
-      2. SKU / Item Code (4-digit code)
+      2. SKU / Item Code (usually 4 digits)
       3. HSN Code (4 or 6 digits)
       4. Price / MRP (numeric value only)
       5. Primary Unit (e.g., Pcs, Set)
@@ -434,7 +434,6 @@
     }
 
     function renderLiveResults() {
-      // Deduplicate items by Item Code
       const uniqueMap = new Map();
       allItems.forEach(i => uniqueMap.set(i["Item Code / SKU"], i));
       const displayItems = Array.from(uniqueMap.values());
