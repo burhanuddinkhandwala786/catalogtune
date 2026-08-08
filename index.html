@@ -44,7 +44,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Dealer & Purchase Price Master Active</span>
+            <span>Verified Universal Engine Active</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="Settings">
@@ -105,8 +105,8 @@
           <div class="h-12 w-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mb-4 group-hover:bg-slate-900 group-hover:text-white transition-all duration-300 shadow-sm">
             <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
           </div>
-          <h2 class="text-base font-semibold text-slate-900 mb-1">Upload Any Price List or Invoice</h2>
-          <p class="text-xs text-slate-500 max-w-sm mb-6">Drop PDF price sheets, dealer price lists, or scanned image documents to generate an Accountune CSV file</p>
+          <h2 class="text-base font-semibold text-slate-900 mb-1">Upload Any Catalog PDF or Image</h2>
+          <p class="text-xs text-slate-500 max-w-sm mb-6">Drop multi-page PDF catalogs, price lists, or scanned document images to generate an Accountune CSV file</p>
           
           <button class="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs px-5 py-2.5 rounded-xl transition shadow-sm">
             Select Document
@@ -119,7 +119,7 @@
           <div class="flex justify-between items-center text-xs font-medium text-slate-600">
             <span id="progress-status" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
-              Extracting Line Items & Mapping Purchase Prices...
+              Extracting Catalog Items...
             </span>
             <span id="progress-percent" class="font-bold text-slate-900">0%</span>
           </div>
@@ -141,7 +141,7 @@
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 class="font-semibold text-slate-900 text-sm">Accountune Inventory Import Preview</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items mapped with Dealer/Purchase Price for Accountune</p>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items ready for Accountune import</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
@@ -157,7 +157,7 @@
                 <th class="p-3.5">Full Item Name</th>
                 <th class="p-3.5">Item Code</th>
                 <th class="p-3.5">HSN Code</th>
-                <th class="p-3.5">Dealer Purchase Price (₹)</th>
+                <th class="p-3.5">Price (₹)</th>
                 <th class="p-3.5">GST Rate (%)</th>
                 <th class="p-3.5">Primary Unit</th>
                 <th class="p-3.5">Opening Qty</th>
@@ -173,7 +173,7 @@
   </div>
 
   <footer class="py-5 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white">
-    CatalogTune — Universal Price List & Inventory Import Master
+    CatalogTune — Verified CSV Format for Accountune Bulk Import
   </footer>
 
   <script>
@@ -253,53 +253,92 @@
     function detectCategory(name, pageHeader, hsn) {
       const combined = (name + " " + pageHeader).toLowerCase();
 
-      if (combined.includes("amulya") || combined.includes("laminate") || combined.includes("sheet")) {
-        return "Laminates & Sheets";
-      }
-      if (combined.includes("digital") || combined.includes("advantis") || combined.includes("neo connect")) {
+      if (combined.includes("digital") || combined.includes("advantis") || combined.includes("neo connect") || combined.includes("neo prime") || combined.includes("neo advantage")) {
         return "Digital Locks";
       }
-      if (combined.includes("mortise") || combined.includes("neh") || combined.includes("gloria")) {
+      if (combined.includes("mortise") || combined.includes("neh") || combined.includes("gloria") || combined.includes("europrofile mortise")) {
         return "Mortise Locks";
       }
-      if (combined.includes("rim") || combined.includes("pentabolt") || combined.includes("vertibolt")) {
+      if (combined.includes("rim") || combined.includes("pentabolt") || combined.includes("centaur") || combined.includes("tribolt") || combined.includes("twinbolt") || combined.includes("vertibolt") || combined.includes("night latch") || combined.includes("khatakhat")) {
         return "Rim Locks";
       }
-      if (combined.includes("padlock") || combined.includes("navtal") || combined.includes("sherlock")) {
+      if (combined.includes("cylindrical") || combined.includes("5ptc")) {
+        return "Cylindrical Locks";
+      }
+      if (combined.includes("padlock") || combined.includes("navtal") || combined.includes("nav-tal") || combined.includes("sherlock") || combined.includes("duralock") || combined.includes("herculoc") || combined.includes("kaditala")) {
         return "Padlocks";
       }
-      if (combined.includes("furniture") || combined.includes("curvo") || combined.includes("nuvo")) {
+      if (combined.includes("supernova") || combined.includes("furniture lock") || combined.includes("curvo") || combined.includes("nuvo") || combined.includes("cam lock") || combined.includes("almirah")) {
         return "Furniture Locks";
       }
-      if (combined.includes("handle") || combined.includes("cameo") || combined.includes("ugo")) {
+      if (combined.includes("handle") || combined.includes("cameo") || combined.includes("ugo") || combined.includes("twist") || combined.includes("ecstacy") || combined.includes("orso") || combined.includes("hdh") || combined.includes("arsa")) {
         return "Door Handles";
       }
-      if (combined.includes("hinge") || combined.includes("aldrop") || combined.includes("stopper")) {
+      if (combined.includes("closer") || combined.includes("cerus") || combined.includes("hercules") || combined.includes("door control")) {
+        return "Door Controls";
+      }
+      if (combined.includes("hinge") || combined.includes("aldrop") || combined.includes("door stopper") || combined.includes("tower bolt")) {
         return "Door Fittings";
       }
-      if (combined.includes("profile") || combined.includes("gola")) {
+      if (combined.includes("hikido") || combined.includes("wardrobe")) {
+        return "Wardrobe Fittings";
+      }
+      if (combined.includes("neulift") || combined.includes("bed")) {
+        return "Bed Fittings";
+      }
+      if (combined.includes("drawer channel") || combined.includes("minifix") || combined.includes("cabinet hinge")) {
+        return "Furniture Fittings";
+      }
+      if (combined.includes("profile") || combined.includes("slimline") || combined.includes("gola")) {
         return "Aluminium Profiles";
       }
+      if (combined.includes("skido") || combined.includes("pantry") || combined.includes("pullout") || combined.includes("basket") || combined.includes("kitchen")) {
+        return "Kitchen Fittings";
+      }
 
-      if (hsn === "39209919" || hsn === "48239090") return "Laminates & Sheets";
       if (hsn === "83011000") return "Padlocks";
       if (hsn === "83013000") return "Furniture Locks";
+      if (hsn === "83024110") return "Door Fittings";
+      if (hsn === "83024200") return "Kitchen Fittings";
 
-      return "Hardware & Materials";
+      return "Hardware & Locks";
     }
 
-    // Dynamic Primary Unit Resolver
+    // Dynamic Accountune Primary Unit Resolver
     function detectSmartUnit(name) {
       const s = name.toLowerCase();
 
-      if (s.includes("sheet") || s.includes("laminate") || s.includes("amulya")) {
-        return "PCS";
-      }
-      if (s.includes("channel") || s.includes("slide") || s.includes("set") || s.includes("pair")) {
+      if (
+        s.includes("drawer channel") || 
+        s.includes("channel") || 
+        s.includes("slide") || 
+        s.includes("set") || 
+        s.includes("combipack") || 
+        s.includes("kit") || 
+        s.includes("pair") || 
+        s.includes("hinge") || 
+        s.includes("system") || 
+        s.includes("latch with handle") || 
+        s.includes("pack of 2") || 
+        s.includes("pack of 4")
+      ) {
         return "SET";
       }
-      if (s.includes("screw") || s.includes("dowel") || s.includes("box")) {
+
+      if (
+        s.includes("dowel") || 
+        s.includes("screw") || 
+        s.includes("connector") || 
+        s.includes("cam housing") || 
+        s.includes("bracket") || 
+        s.includes("end cap") || 
+        /\b(box|boxes)\b/.test(s)
+      ) {
         return "BOX";
+      }
+
+      if (s.includes("bottle") || s.includes("liquid") || s.includes("cleaner") || /\b(btl|bottles?)\b/.test(s)) {
+        return "BTL";
       }
 
       return "PCS";
@@ -321,16 +360,15 @@
       }
     }
 
-    // Universal Dynamic PDF & Price Sheet Spatial Parser
+    // Universal Dynamic PDF Spatial Parser
     async function processPdfSpatial(file) {
       try {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const totalPages = pdf.numPages;
 
-        let currentHSN = "39209919";
+        let currentHSN = "83014090";
         let lastSectionTitle = "";
-        let autoCodeIndex = 1001;
         const defaultStock = parseInt(localStorage.getItem('catalogtune_default_stock') || "0");
 
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
@@ -348,6 +386,10 @@
           if (!textContent.items.length) continue;
 
           const fullPageText = textContent.items.map(item => item.str).join(' ');
+          
+          if (pageNum <= 3 && !/\b\d{3,6}\b/.test(fullPageText)) {
+            continue;
+          }
 
           const hsnMatch = fullPageText.match(/HSN\s*code\s*:\s*(\d+)/i);
           if (hsnMatch) {
@@ -369,7 +411,7 @@
           let currentRow = [];
 
           elements.forEach(item => {
-            if (currentY === null || Math.abs(item.y - currentY) < 5) {
+            if (currentY === null || Math.abs(item.y - currentY) < 4) {
               currentRow.push(item);
               currentY = item.y;
             } else {
@@ -384,15 +426,22 @@
             rawRows.push({ y: currentY, items: currentRow });
           }
 
-          // Track Section Headers (e.g., AMULYA 800 0.8MM, AMULYA 1MM, AMULYA LINEAR)
           rawRows.forEach(r => {
             const str = r.items.map(x => x.text).join(' ');
-            if (str.toLowerCase().includes("amulya") || str.toLowerCase().includes("imperial") || (r.items.length <= 2 && str.length < 40 && !/\d{3,}/.test(str))) {
-              if (!str.includes("PARTICULAR") && !str.includes("DEALER")) {
-                lastSectionTitle = str.replace(/[-_]/g, ' ').trim();
+            if (r.items.length <= 3 && !str.includes("Product Name") && !str.includes("HSN") && str.length > 3 && str.length < 35) {
+              if (!/^\d+$/.test(str) && !str.includes("Page")) {
+                lastSectionTitle = str;
               }
             }
           });
+
+          let dynamicColSplitX = 270;
+          const allXCoords = elements.map(e => e.x).sort((a, b) => a - b);
+          if (allXCoords.length > 10) {
+            const minX = allXCoords[0];
+            const maxX = allXCoords[allXCoords.length - 1];
+            dynamicColSplitX = minX + (maxX - minX) * 0.40;
+          }
 
           for (let i = 0; i < rawRows.length; i++) {
             const rObj = rawRows[i];
@@ -401,38 +450,103 @@
             const rowStr = texts.join(' ');
 
             if (
-              rowStr.includes("PARTICULAR") || 
-              rowStr.includes("DEALER PRICE") || 
-              rowStr.includes("PRICE LIST") || 
-              rowStr.includes("UNSPSC") ||
-              rowStr.includes("Product Name")
+              rowStr.includes("Product Name") || 
+              rowStr.includes("UNSPSC") || 
+              rowStr.includes("Std. Pkg.") || 
+              rowStr.includes("MRP") || 
+              rowStr.includes("Safety Strength") || 
+              rowStr.includes("Door Thickness") || 
+              rowStr.includes("The widest range") ||
+              rowStr.includes("Price List") ||
+              rowStr.includes("W.E.F") ||
+              rowStr.includes("Index")
             ) {
               continue;
             }
 
-            // Price Extraction (e.g. 790/-, 1485/-, 2700/- or 790)
-            const priceCandidates = texts.filter(t => /\b\d{3,5}(?:\/-)?\b/.test(t));
+            const hasUNSPSC = texts.some(t => /\d{8}SD\d{5}/.test(t));
+            const codeCandidates = texts.filter(t => /^\d{4}$/.test(t));
+            const priceCandidates = texts.filter(t => /^\d{1,3}(?:\s\d{3})*(?:\.\d+)?$/.test(t) || (/^\d+$/.test(t) && t.length >= 3 && t.length <= 6));
 
-            if (priceCandidates.length > 0) {
+            if ((hasUNSPSC || codeCandidates.length > 0) && priceCandidates.length > 0) {
+              const sku = codeCandidates.length > 0 ? codeCandidates[0] : "N/A";
               const mrpRaw = priceCandidates[priceCandidates.length - 1];
               const cleanPrice = parseFloat(mrpRaw.replace(/[^\d.]/g, ''));
 
-              if (cleanPrice >= 100 && cleanPrice <= 200000) {
-                // Code Detection (or Auto-Code Generation)
-                const codeCandidates = texts.filter(t => /^\d{4}$/.test(t));
-                let sku = codeCandidates.length > 0 ? codeCandidates[0] : `AML-${autoCodeIndex++}`;
+              if (cleanPrice > 10 && cleanPrice !== 2026 && cleanPrice !== parseFloat(sku)) {
+                let subItems = [];
+                if (i + 1 < rawRows.length) {
+                  const nextY = rawRows[i+1].y;
+                  if (Math.abs(rObj.y - nextY) < 14) {
+                    const nextTexts = rawRows[i+1].items.map(x => x.text);
+                    const nextHasSku = nextTexts.some(t => /^\d{4}$/.test(t));
+                    const nextHasPrice = nextTexts.some(t => /^\d{1,3}(?:\s\d{3})*(?:\.\d+)?$/.test(t));
+                    if (!nextHasSku && !nextHasPrice) {
+                      subItems = rawRows[i+1].items;
+                      i++;
+                    }
+                  }
+                }
 
-                const nameTokens = texts.filter(t => t !== mrpRaw && t !== sku && !t.includes("/-"));
-                let cleanTitle = nameTokens.join(' ').replace(/\s+/g, ' ').trim();
+                const nameColTokens = [];
+                const specColTokens = [];
 
-                if (!cleanTitle || cleanTitle.length < 2) {
-                  cleanTitle = lastSectionTitle;
-                } else if (lastSectionTitle && !cleanTitle.toLowerCase().includes(lastSectionTitle.toLowerCase())) {
-                  cleanTitle = `${lastSectionTitle} ${cleanTitle}`;
+                mainItems.forEach(it => {
+                  const t = it.text;
+                  if (t === mrpRaw || t === sku || /\d{8}SD\d{5}/.test(t)) return;
+                  if (["(mm)", "(cm)", "(inch)", "Size", "Pcs", "Set"].includes(t)) return;
+                  
+                  if (it.x < dynamicColSplitX) {
+                    nameColTokens.push(t);
+                  } else {
+                    specColTokens.push(t);
+                  }
+                });
+
+                subItems.forEach(it => {
+                  const t = it.text;
+                  if (t === mrpRaw || t === sku || /\d{8}SD\d{5}/.test(t)) return;
+                  if (["(mm)", "(cm)", "(inch)", "Size", "Pcs", "Set"].includes(t)) return;
+
+                  if (it.x < dynamicColSplitX) {
+                    nameColTokens.push(t);
+                  } else {
+                    specColTokens.push(t);
+                  }
+                });
+
+                const cleanedSpecs = [];
+                for (let k = 0; k < specColTokens.length; k++) {
+                  const tok = specColTokens[k];
+                  if (/^\d+$/.test(tok)) {
+                    const prevStr = (nameColTokens.join(' ') + " " + cleanedSpecs.join(' ')).toLowerCase();
+                    if (prevStr.includes("mm") || prevStr.includes("cm") || prevStr.includes("inch") || prevStr.includes("kg")) {
+                      continue;
+                    }
+                  }
+                  cleanedSpecs.push(tok);
+                }
+
+                if (cleanedSpecs.length && /^\d+$/.test(cleanedSpecs[cleanedSpecs.length - 1])) {
+                  const lastNum = parseInt(cleanedSpecs[cleanedSpecs.length - 1]);
+                  if ([1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 16, 20, 24, 25, 30, 40, 50, 60].includes(lastNum)) {
+                    cleanedSpecs.pop();
+                  }
+                }
+
+                let fullTitleParts = [...nameColTokens, ...cleanedSpecs];
+                let cleanTitle = fullTitleParts.length ? fullTitleParts.join(' ').replace(/\s+/g, ' ').trim() : "Item " + sku;
+
+                if (cleanTitle.toLowerCase().startsWith("up to") || cleanTitle.toLowerCase().startsWith("size") || nameColTokens.length === 0) {
+                  if (lastSectionTitle && !cleanTitle.toLowerCase().includes(lastSectionTitle.toLowerCase())) {
+                    cleanTitle = lastSectionTitle + " " + cleanTitle;
+                  }
                 }
 
                 if (sku !== "N/A" && !cleanTitle.includes(`#${sku}`) && !cleanTitle.includes(sku)) {
                   cleanTitle += ` - #${sku}`;
+                } else if (sku !== "N/A" && cleanTitle.includes(sku) && !cleanTitle.includes(`#${sku}`)) {
+                  cleanTitle = cleanTitle.replace(new RegExp("\\b" + sku + "\\b", "g"), `#${sku}`);
                 }
 
                 if (cleanTitle.length > 2) {
@@ -490,7 +604,7 @@
     async function extractVisionOpenAI(base64Image, apiKey) {
       const defaultStock = parseInt(localStorage.getItem('catalogtune_default_stock') || "0");
       const prompt = `
-      Extract all item descriptions and dealer purchase prices from this price list image.
+      Extract all product line items from this price list image.
       Return STRICTLY a JSON object with key "items" containing an array of objects with keys:
       "itemName", "itemCode", "hsnCode", "salesPrice", "unit"
       `;
@@ -522,11 +636,10 @@
         const content = JSON.parse(data.choices[0].message.content);
         const rawItems = content.items || [];
 
-        let autoIndex = 1001;
         rawItems.forEach(item => {
           let cleanPrice = String(item.salesPrice || '0').replace(/[^\d.]/g, '');
-          let hsn = String(item.hsnCode || '39209919').replace(/[^\d]/g, '');
-          let sku = item.itemCode || `AML-${autoIndex++}`;
+          let hsn = String(item.hsnCode || '83014090').replace(/[^\d]/g, '');
+          let sku = item.itemCode || 'N/A';
           let name = item.itemName || 'Unnamed Product';
 
           if (sku !== "N/A" && !name.includes(`#${sku}`)) {
@@ -541,7 +654,7 @@
               category: category,
               name: name,
               sku: sku,
-              hsn: hsn || '39209919',
+              hsn: hsn || '83014090',
               price: parseFloat(cleanPrice) || 0,
               stock: defaultStock,
               unit: smartUnit
@@ -558,33 +671,26 @@
 
     function parseOcrText(text) {
       const defaultStock = parseInt(localStorage.getItem('catalogtune_default_stock') || "0");
-      const lines = text.split('\n').filter(l => l.trim().length > 4);
+      const lines = text.split('\n').filter(l => l.trim().length > 5);
 
-      let lastSection = "AMULYA LAMINATES";
-      let autoIndex = 1001;
-
-      lines.forEach((line) => {
-        if (line.includes("AMULYA") || line.includes("IMPERIAL") || line.includes("PRICE LIST")) {
-          lastSection = line.replace(/[^a-zA-Z0-9.\s]/g, '').trim();
-          return;
-        }
-
-        const numbers = line.match(/\b\d{3,5}(?:\/-)?\b/g) || [];
+      lines.forEach((line, index) => {
+        const numbers = line.match(/\b\d+[\d,.]*\b/g) || [];
         if (numbers.length >= 1) {
-          const price = parseFloat(numbers[numbers.length - 1].replace(/[^\d.]/g, '')) || 0;
-          const sku = `AML-${autoIndex++}`;
+          const price = parseFloat(numbers[numbers.length - 1].replace(/,/g, '')) || 0;
+          const codeMatch = line.match(/\b\d{4}\b/);
+          const itemCode = codeMatch ? codeMatch[0] : (3000 + index);
 
-          let name = line.replace(/\b\d{3,5}(?:\/-)?\b/g, '').replace(/[\/|-]/g, ' ').trim();
-          if (name.length > 2 && price >= 100) {
-            let fullTitle = `${lastSection} ${name} - #${sku}`;
-            const category = detectCategory(fullTitle, "", "39209919");
-            const smartUnit = detectSmartUnit(fullTitle);
+          let name = line.replace(/[0-9]/g, '').replace(/[\/|-]/g, ' ').trim();
+          if (name.length > 3 && price > 10) {
+            let uniqueName = `${name} - #${itemCode}`;
+            const category = detectCategory(uniqueName, "", "83014090");
+            const smartUnit = detectSmartUnit(uniqueName);
 
             allExtractedItems.push(buildAccountuneRow({
               category: category,
-              name: fullTitle,
-              sku: sku,
-              hsn: "39209919",
+              name: uniqueName,
+              sku: itemCode,
+              hsn: "83014090",
               price: price,
               stock: defaultStock,
               unit: smartUnit
@@ -597,7 +703,7 @@
       renderLiveResults();
     }
 
-    // Builder for Accountune Specification (Dealer Purchase Price Included)
+    // Builder for Exact 27-Column Accountune Specification
     function buildAccountuneRow({ category, name, sku, hsn, price, stock, unit }) {
       return {
         "Type": "Goods",
@@ -617,8 +723,8 @@
         "Primary Price Including Tax": "Yes",
         "Default Selling Price Per Secondary Unit": "",
         "Secondary Price Including Tax": "",
-        "Default Purchase Price Per Primary Unit": price,
-        "Primary Purchase Price Including Tax": "Yes",
+        "Default Purchase Price Per Primary Unit": "",
+        "Primary Purchase Price Including Tax": "",
         "Default Purchase Price Per Secondary Unit": "",
         "Secondary Purchase Price Including Tax": "",
         "Default Unit for Purchase": "primary",
@@ -668,7 +774,7 @@
           <td class="p-3.5 font-medium text-slate-900">${item['Name']}</td>
           <td class="p-3.5 font-mono text-slate-500">${item['Item Code']}</td>
           <td class="p-3.5 font-mono text-slate-500">${item['HSN Code']}</td>
-          <td class="p-3.5 font-semibold text-slate-900">₹${item['Default Purchase Price Per Primary Unit'].toLocaleString('en-IN')}</td>
+          <td class="p-3.5 font-semibold text-slate-900">₹${item['Default Selling Price Per Primary Unit'].toLocaleString('en-IN')}</td>
           <td class="p-3.5 text-slate-500">${item['GST Rate']}%</td>
           <td class="p-3.5 font-semibold text-slate-700 bg-slate-100/50 rounded-lg">${item['Primary Unit']}</td>
           <td class="p-3.5 font-bold text-emerald-600">${item['Opening Quantity']}</td>
