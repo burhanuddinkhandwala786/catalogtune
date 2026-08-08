@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CatalogTune Pro — Accountune Master Import Generator</title>
+  <title>CatalogTune Pro — Enterprise Accountune Import Generator</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -41,7 +41,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Spatial Table Engine Active</span>
+            <span>Enterprise Spatial Engine v3.0</span>
           </div>
         </div>
       </div>
@@ -100,7 +100,7 @@
       <div id="results-card" class="hidden bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mt-6">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 class="font-semibold text-slate-900 text-sm">Extracted Products</h3>
+            <h3 class="font-semibold text-slate-900 text-sm">Extracted Products Database</h3>
             <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items ready for Accountune (Opening Stock = 0)</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
@@ -188,7 +188,7 @@
 
         let currentHSN = "83014090";
 
-        // Skip introductory pages (1-3)
+        // SKIP COVER & INDEX (Page 1-3). START AT PAGE 4.
         for (let pageNum = 4; pageNum <= totalPages; pageNum++) {
           if (isCancelled) {
             progressStatus.textContent = "Stopped by user.";
@@ -196,21 +196,21 @@
           }
 
           pagesStat.textContent = `${pageNum}/${totalPages}`;
-          updateProgress(pageNum, totalPages, `Extracting Page ${pageNum} of ${totalPages}...`);
+          updateProgress(pageNum, totalPages, `Processing Page ${pageNum} of ${totalPages}...`);
 
           const page = await pdf.getPage(pageNum);
           const textContent = await page.getTextContent();
           
           if (!textContent.items.length) continue;
 
-          // Check Page-Level HSN Code
+          // Capture Page-Level HSN Code
           const fullPageText = textContent.items.map(item => item.str).join(' ');
           const hsnMatch = fullPageText.match(/HSN\s*code\s*:\s*(\d+)/i);
           if (hsnMatch) {
             currentHSN = hsnMatch[1];
           }
 
-          // Cluster text elements by Y coordinate (Row grouping)
+          // Map text elements with spatial coordinates
           const elements = textContent.items
             .filter(item => item.str.trim().length > 0)
             .map(item => ({
@@ -219,14 +219,16 @@
               text: item.str.trim()
             }));
 
-          elements.sort((a, b) => b.y - a.y); // Top to bottom
+          // Sort Top to Bottom by Y coordinate
+          elements.sort((a, b) => b.y - a.y);
 
+          // Group elements into horizontal Y rows (4pt tolerance)
           const rows = [];
           let currentY = null;
           let currentRow = [];
 
           elements.forEach(item => {
-            if (currentY === null || Math.abs(item.y - currentY) < 5) {
+            if (currentY === null || Math.abs(item.y - currentY) < 4) {
               currentRow.push(item);
               currentY = item.y;
             } else {
@@ -241,48 +243,63 @@
             rows.push(currentRow);
           }
 
-          // Parse Spatial Rows into Items
+          // Strict Enterprise Table Row Extraction
           rows.forEach(row => {
             const texts = row.map(r => r.text);
             const rowStr = texts.join(' ');
 
-            // Ignore Header and Disclaimer Lines
-            if (rowStr.includes("Product Name") || rowStr.includes("UNSPSC") || rowStr.includes("Std. Pkg.") || rowStr.includes("MRP") || rowStr.includes("Safety Strength") || rowStr.includes("Door Thickness") || rowStr.includes("The widest range")) {
+            // Ignore disclaimers, headers, safety strength descriptions, and index text
+            if (
+              rowStr.includes("Product Name") || 
+              rowStr.includes("UNSPSC") || 
+              rowStr.includes("Std. Pkg.") || 
+              rowStr.includes("MRP") || 
+              rowStr.includes("Safety Strength") || 
+              rowStr.includes("Door Thickness") || 
+              rowStr.includes("The widest range") ||
+              rowStr.includes("Price List") ||
+              rowStr.includes("W.E.F") ||
+              rowStr.includes("Index")
+            ) {
               return;
             }
 
-            // Find SKU Code (4 digits)
+            // Must contain a UNSPSC Code OR a 4-digit Godrej SKU Code
+            const hasUNSPSC = texts.some(t => /\d{8}SD\d{5}/.test(t));
             const codeCandidates = texts.filter(t => /^\d{4}$/.test(t));
-            // Find Prices (formatted as "69 999", "70.999", "5 090")
             const priceCandidates = texts.filter(t => /^\d{1,3}(?:\s\d{3})*(?:\.\d+)?$/.test(t) || (/^\d+$/.test(t) && t.length >= 3 && t.length <= 6));
 
-            if (codeCandidates.length > 0 && priceCandidates.length > 0) {
-              const sku = codeCandidates[0];
+            if ((hasUNSPSC || codeCandidates.length > 0) && priceCandidates.length > 0) {
+              const sku = codeCandidates.length > 0 ? codeCandidates[0] : "N/A";
               const mrpRaw = priceCandidates[priceCandidates.length - 1];
               const cleanPrice = parseFloat(mrpRaw.replace(/[^\d.]/g, ''));
 
+              // Enforce Price Guard Rules
               if (cleanPrice > 10 && cleanPrice !== 2026 && cleanPrice !== parseFloat(sku)) {
-                // Build Clean Title
+                
+                // Clean Title Generation
                 const nameParts = texts.filter(t => 
                   t !== sku && 
                   t !== mrpRaw && 
                   !/^\d+$/.test(t) && 
-                  !t.includes("SD") && 
-                  !t.includes("UNSPSC") && 
-                  !["(mm)", "Pcs", "Set"].includes(t)
+                  !/\d{8}SD\d{5}/.test(t) && 
+                  !["(mm)", "Pcs", "Set", "mm"].includes(t) &&
+                  !t.startsWith("(") && !t.endsWith(")")
                 );
 
-                const cleanTitle = nameParts.length ? nameParts.join(' ') : "Godrej Product " + sku;
+                const cleanTitle = nameParts.length ? nameParts.join(' ').replace(/\s+/g, ' ').trim() : "Godrej Product " + sku;
 
-                allExtractedItems.push({
-                  "Item Name": cleanTitle,
-                  "Item Code / SKU": sku,
-                  "HSN Code": currentHSN,
-                  "Sales Price": cleanPrice,
-                  "Tax Rate (%)": "18%",
-                  "Primary Unit": "Pcs",
-                  "Opening Stock": 0
-                });
+                if (cleanTitle.length > 2) {
+                  allExtractedItems.push({
+                    "Item Name": cleanTitle,
+                    "Item Code / SKU": sku,
+                    "HSN Code": currentHSN,
+                    "Sales Price": cleanPrice,
+                    "Tax Rate (%)": "18%",
+                    "Primary Unit": "Pcs",
+                    "Opening Stock": 0
+                  });
+                }
               }
             }
           });
@@ -306,9 +323,15 @@
     }
 
     function renderLiveResults() {
-      // Deduplicate items strictly by SKU Code
+      // Deduplicate items strictly by SKU and Name
       const uniqueMap = new Map();
-      allExtractedItems.forEach(item => uniqueMap.set(item["Item Code / SKU"], item));
+      allExtractedItems.forEach(item => {
+        const key = item["Item Code / SKU"] !== "N/A" ? item["Item Code / SKU"] : item["Item Name"];
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, item);
+        }
+      });
+
       const displayItems = Array.from(uniqueMap.values());
 
       countSpan.textContent = displayItems.length;
@@ -336,7 +359,12 @@
 
     downloadBtn.addEventListener('click', () => {
       const uniqueMap = new Map();
-      allExtractedItems.forEach(item => uniqueMap.set(item["Item Code / SKU"], item));
+      allExtractedItems.forEach(item => {
+        const key = item["Item Code / SKU"] !== "N/A" ? item["Item Code / SKU"] : item["Item Name"];
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, item);
+        }
+      });
       const exportData = Array.from(uniqueMap.values());
 
       if (!exportData.length) return;
