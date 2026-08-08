@@ -44,7 +44,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Accountune Invoice Matching Engine Active</span>
+            <span>Purchase Bill Stock Sync Active</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="Settings">
@@ -678,7 +678,6 @@
     function getSortedUniqueItems() {
       const uniqueMap = new Map();
       allExtractedItems.forEach(item => {
-        // Primary deduplication key is Item Code (SKU). Fallback to Name.
         const key = (item["Item Code"] && item["Item Code"] !== "N/A") ? item["Item Code"] : item["Name"];
         if (!uniqueMap.has(key)) {
           uniqueMap.set(key, item);
