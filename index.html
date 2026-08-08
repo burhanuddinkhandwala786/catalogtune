@@ -4,17 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CatalogTune AI — Enterprise Catalog & Invoice Intelligence</title>
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   
   <style>
@@ -85,6 +80,12 @@
         </div>
       </div>
 
+      <!-- Error Notification Box -->
+      <div id="error-box" class="hidden bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-2xl p-4 text-xs font-medium flex items-center gap-3">
+        <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-400 shrink-0"></i>
+        <span id="error-message">An error occurred during extraction.</span>
+      </div>
+
       <!-- Drag & Drop Upload Portal -->
       <div class="glass-panel rounded-2xl p-8 border border-slate-800/80 text-center relative overflow-hidden group">
         <div id="drop-area" class="border-2 border-dashed border-slate-800 hover:border-indigo-500/50 rounded-xl p-10 transition duration-300 cursor-pointer bg-slate-950/40 hover:bg-slate-900/30 flex flex-col items-center justify-center gap-4">
@@ -93,11 +94,7 @@
           </div>
           <div>
             <h3 class="text-base font-semibold text-white mb-1">Upload Price Catalog or Invoice</h3>
-            <p class="text-xs text-slate-400 max-w-sm mx-auto">Drag & drop high-volume PDF (up to 144+ pages) or JPEG/PNG document images</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-1 rounded-md">PDF Engine v3.1</span>
-            <span class="text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-1 rounded-md">Parallel Batches: 3 Pages</span>
+            <p class="text-xs text-slate-400 max-w-sm mx-auto">Drag & drop PDF catalog or image files</p>
           </div>
           <input type="file" id="file-input" accept="application/pdf,image/*" class="hidden">
         </div>
@@ -106,7 +103,7 @@
         <div id="progress-container" class="hidden mt-6 bg-slate-950/80 border border-slate-800 rounded-xl p-5 text-left">
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2">
-              <div class="spinner border-2 border-indigo-500 border-t-transparent rounded-full w-4 h-4 animate-spin"></div>
+              <div id="spinner" class="border-2 border-indigo-500 border-t-transparent rounded-full w-4 h-4 animate-spin"></div>
               <span id="progress-status" class="text-xs font-medium text-slate-200">Initializing Extraction...</span>
             </div>
             <span id="progress-percent" class="text-xs font-bold text-indigo-400">0%</span>
@@ -152,7 +149,6 @@
               </tr>
             </thead>
             <tbody id="table-body" class="divide-y divide-slate-800/60 text-slate-300">
-              <!-- Dynamic Rows inserted here -->
             </tbody>
           </table>
         </div>
@@ -160,17 +156,13 @@
 
     </main>
 
-    <!-- Footer -->
     <footer class="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-600">
       CatalogTune AI &copy; 2026 — Optimized for High-Speed Accountune Invoicing & Inventory Workflows
     </footer>
   </div>
 
-  <!-- Application Logic -->
   <script>
-    // Initialize Icons
     lucide.createIcons();
-
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     const apiKeyInput = document.getElementById('api-key');
@@ -182,15 +174,17 @@
     const progressStatus = document.getElementById('progress-status');
     const progressPercent = document.getElementById('progress-percent');
     const progressBar = document.getElementById('progress-bar');
+    const spinner = document.getElementById('spinner');
     const resultsCard = document.getElementById('results-card');
     const tableBody = document.getElementById('table-body');
     const countSpan = document.getElementById('count');
     const downloadBtn = document.getElementById('download-btn');
+    const errorBox = document.getElementById('error-box');
+    const errorMessage = document.getElementById('error-message');
 
     let allItems = [];
-    const BATCH_SIZE = 3; // Parallel Requests for High Speed Processing
+    const BATCH_SIZE = 2; // Reduced batch size for improved stability
 
-    // Load Local Storage API Key
     window.addEventListener('DOMContentLoaded', () => {
       const savedKey = localStorage.getItem('catalogtune_openai_key');
       if (savedKey) {
@@ -199,7 +193,6 @@
       }
     });
 
-    // Save Key to Browser
     saveKeyBtn.addEventListener('click', () => {
       const key = apiKeyInput.value.trim();
       if (key) {
@@ -214,11 +207,21 @@
     dropArea.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', (e) => { if (e.target.files.length) startProcessing(e.target.files[0]); });
 
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+
+    function hideError() {
+      errorBox.classList.add('hidden');
+    }
+
     async function startProcessing(file) {
+      hideError();
       let apiKey = apiKeyInput.value.trim() || localStorage.getItem('catalogtune_openai_key');
 
       if (!apiKey) {
-        alert("Please configure your OpenAI API Key before starting.");
+        showError("Please enter and save your OpenAI API Key first.");
         return;
       }
 
@@ -226,6 +229,7 @@
       tableBody.innerHTML = '';
       resultsCard.classList.add('hidden');
       progressContainer.classList.remove('hidden');
+      spinner.classList.add('animate-spin');
 
       if (file.type === 'application/pdf') {
         await processPDFParallel(file, apiKey);
@@ -234,37 +238,40 @@
       }
     }
 
-    // High-Speed Parallel Batch Processing for 144-page PDFs
     async function processPDFParallel(file, apiKey) {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const totalPages = pdf.numPages;
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const totalPages = pdf.numPages;
 
-      let completedPages = 0;
+        let completedPages = 0;
 
-      for (let i = 1; i <= totalPages; i += BATCH_SIZE) {
-        const batchProms = [];
+        for (let i = 1; i <= totalPages; i += BATCH_SIZE) {
+          const batchProms = [];
 
-        for (let b = 0; b < BATCH_SIZE && (i + b) <= totalPages; b++) {
-          const pageNum = i + b;
-          batchProms.push((async () => {
-            const page = await pdf.getPage(pageNum);
-            const viewport = page.getViewport({ scale: 1.5 });
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
+          for (let b = 0; b < BATCH_SIZE && (i + b) <= totalPages; b++) {
+            const pageNum = i + b;
+            batchProms.push((async () => {
+              const page = await pdf.getPage(pageNum);
+              const viewport = page.getViewport({ scale: 1.5 });
+              const canvas = document.createElement('canvas');
+              const context = canvas.getContext('2d');
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
 
-            await page.render({ canvasContext: context, viewport: viewport }).promise;
-            const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-            await extractItemsFromImageBase64(base64Image, apiKey);
+              await page.render({ canvasContext: context, viewport: viewport }).promise;
+              const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+              await extractItemsFromImageBase64(base64Image, apiKey);
 
-            completedPages++;
-            updateProgress(completedPages, totalPages, `Processing Batch (${completedPages}/${totalPages} Pages)...`);
-          })());
+              completedPages++;
+              updateProgress(completedPages, totalPages, `Processing Page ${completedPages} of ${totalPages}...`);
+            })());
+          }
+
+          await Promise.all(batchProms);
         }
-
-        await Promise.all(batchProms);
+      } catch (err) {
+        showError("PDF Loading Error: " + err.message);
       }
 
       finishProcessing();
@@ -317,7 +324,10 @@
         });
 
         const data = await response.json();
-        if (data.error) throw new Error(data.error.message);
+        if (data.error) {
+          showError("OpenAI API Error: " + data.error.message);
+          return;
+        }
 
         const content = JSON.parse(data.choices[0].message.content);
         const rawItems = content.items || [];
@@ -333,13 +343,14 @@
             "Sales Price": parseFloat(cleanPrice) || 0,
             "Tax Rate (%)": "18%",
             "Primary Unit": item.unit || 'Pcs',
-            "Opening Stock": 0 // Force 0 opening stock
+            "Opening Stock": 0
           });
         });
 
         renderLiveResults();
       } catch (err) {
-        console.error("Batch Processing Exception:", err);
+        console.error("API Call Exception:", err);
+        showError("Network/API Error: " + err.message);
       }
     }
 
@@ -367,13 +378,18 @@
     }
 
     function finishProcessing() {
+      spinner.classList.remove('animate-spin');
       progressStatus.textContent = "Extraction & Verification Complete!";
       progressPercent.textContent = "100%";
       progressBar.style.width = "100%";
-      setTimeout(() => progressContainer.classList.add('hidden'), 2000);
+      resultsCard.classList.remove('hidden');
     }
 
     downloadBtn.addEventListener('click', () => {
+      if (!allItems.length) {
+        alert("No items extracted to export.");
+        return;
+      }
       const worksheet = XLSX.utils.json_to_sheet(allItems);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Accountune_Master_Import");
