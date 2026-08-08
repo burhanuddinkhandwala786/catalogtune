@@ -1,1 +1,12 @@
-
+{
+  "name": "catalogtune",
+  "version": "1.0.0",
+  "description": "Convert Catalog & Invoice Images to Accountune Excel Template",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'No build step required'"
+  },
+  "dependencies": {
+    "openai": "^4.52.0"
+  }
+}
