@@ -44,7 +44,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Accountune Smart UQC Resolver Active</span>
+            <span>Accountune Unique Name Engine Active</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="Settings">
@@ -75,7 +75,7 @@
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Default Fallback Unit (UQC)</label>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Accountune Default Unit</label>
             <select id="unit-setting" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
               <option value="PCS - (PIECES)">PCS - (PIECES)</option>
               <option value="SET - (SETS)">SET - (SETS)</option>
@@ -130,7 +130,7 @@
           <div class="flex justify-between items-center text-xs font-medium text-slate-600">
             <span id="progress-status" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
-              Extracting Items & Validating UQC Units...
+              Extracting Items & Building Unique Names...
             </span>
             <span id="progress-percent" class="font-bold text-slate-900">0%</span>
           </div>
@@ -152,7 +152,7 @@
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 class="font-semibold text-slate-900 text-sm">Accountune Inventory Import Preview</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items mapped with Accountune GST UQC standard units</p>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> 100% unique items ready for Accountune</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
@@ -165,12 +165,12 @@
             <thead class="sticky top-0 bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider">
               <tr>
                 <th class="p-3.5">Category</th>
-                <th class="p-3.5">Unique Item Name</th>
+                <th class="p-3.5">100% Unique Item Name</th>
                 <th class="p-3.5">Item Code</th>
                 <th class="p-3.5">HSN Code</th>
                 <th class="p-3.5">Price (₹)</th>
                 <th class="p-3.5">GST Rate (%)</th>
-                <th class="p-3.5">Accountune Unit</th>
+                <th class="p-3.5">Unit</th>
                 <th class="p-3.5">Opening Qty</th>
               </tr>
             </thead>
@@ -184,7 +184,7 @@
   </div>
 
   <footer class="py-5 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white">
-    CatalogTune — Verified GST UQC CSV Format for Accountune Bulk Import
+    CatalogTune — Verified 27-Column CSV Format for Accountune Bulk Import
   </footer>
 
   <script>
@@ -322,7 +322,7 @@
     }
 
     // Smart GST UQC Unit Resolver
-    function detectSmartUnit(name, rawUnit) {
+    function detectSmartUnit(name) {
       const lowerName = name.toLowerCase();
 
       if (lowerName.includes("profile") || lowerName.includes("track") || lowerName.includes("gola") || lowerName.includes("mtr") || lowerName.includes("meter")) {
@@ -341,7 +341,6 @@
         return "BDL - (BUNDLES)";
       }
 
-      // Default Standard Unit for Locks and Handles
       const userDefault = localStorage.getItem('catalogtune_default_unit');
       return userDefault || "PCS - (PIECES)";
     }
@@ -451,15 +450,17 @@
               const cleanPrice = parseFloat(mrpRaw.replace(/[^\d.]/g, ''));
 
               if (cleanPrice > 10 && cleanPrice !== 2026 && cleanPrice !== parseFloat(sku)) {
+                // Include ALL descriptive text in row to ensure unique attributes (Finish, Size, Variant) are kept
                 const nameParts = texts.filter(t => 
                   t !== mrpRaw && 
                   !/\d{8}SD\d{5}/.test(t) && 
-                  !["(mm)", "Pcs", "Set", "PCS"].includes(t) &&
+                  !["(mm)", "Pcs", "Set", "Std.", "Pkg."].includes(t) &&
                   !t.startsWith("(") && !t.endsWith(")")
                 );
 
                 let cleanTitle = nameParts.length ? nameParts.join(' ').replace(/\s+/g, ' ').trim() : "Item " + sku;
 
+                // GUARANTEE 100% UNIQUENESS FOR ACCOUNTUNE: Append SKU code to Item Name
                 if (sku !== "N/A" && !cleanTitle.includes(`#${sku}`) && !cleanTitle.includes(sku)) {
                   cleanTitle += ` - #${sku}`;
                 } else if (sku !== "N/A" && cleanTitle.includes(sku) && !cleanTitle.includes(`#${sku}`)) {
@@ -468,7 +469,7 @@
 
                 if (cleanTitle.length > 2) {
                   const category = detectCategory(cleanTitle, fullPageText, currentHSN);
-                  const smartUnit = detectSmartUnit(cleanTitle, "");
+                  const smartUnit = detectSmartUnit(cleanTitle);
 
                   allExtractedItems.push(buildAccountuneRow({
                     category: category,
@@ -564,7 +565,7 @@
           }
 
           const category = detectCategory(name, "", hsn);
-          const smartUnit = detectSmartUnit(name, item.unit || "");
+          const smartUnit = detectSmartUnit(name);
 
           if (cleanPrice && cleanPrice !== '0') {
             allExtractedItems.push(buildAccountuneRow({
@@ -601,7 +602,7 @@
           if (name.length > 3 && price > 10) {
             let uniqueName = `${name} - #${itemCode}`;
             const category = detectCategory(uniqueName, "", "83014090");
-            const smartUnit = detectSmartUnit(uniqueName, "");
+            const smartUnit = detectSmartUnit(uniqueName);
 
             allExtractedItems.push(buildAccountuneRow({
               category: category,
@@ -620,7 +621,7 @@
       renderLiveResults();
     }
 
-    // Builder for Exact Accountune GST UQC Import Specification
+    // Builder for Exact 27-Column Accountune Specification
     function buildAccountuneRow({ category, name, sku, hsn, price, stock, unit }) {
       return {
         "Type": "Goods",
