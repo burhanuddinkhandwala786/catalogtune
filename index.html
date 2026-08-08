@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CatalogTune Pro — Multi-Format Accountune Import Generator</title>
+  <title>CatalogTune Pro — Accountune Master Import Generator</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -44,7 +44,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Multi-Format Active (PDF & Images)</span>
+            <span>Accountune Template Mode Active</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="API Settings">
@@ -131,8 +131,8 @@
       <div id="results-card" class="hidden bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mt-6">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 class="font-semibold text-slate-900 text-sm">Extracted Products Database</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items ready for Accountune (Opening Stock = 0)</p>
+            <h3 class="font-semibold text-slate-900 text-sm">Extracted Accountune Master</h3>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items formatted for Accountune (Opening Stock = 0)</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
@@ -147,10 +147,10 @@
                 <th class="p-3.5">Item Name</th>
                 <th class="p-3.5">SKU / Code</th>
                 <th class="p-3.5">HSN Code</th>
-                <th class="p-3.5">Price (₹)</th>
-                <th class="p-3.5">Tax Rate</th>
-                <th class="p-3.5">Unit</th>
-                <th class="p-3.5">Stock</th>
+                <th class="p-3.5">Sales Price</th>
+                <th class="p-3.5">Tax Rate (%)</th>
+                <th class="p-3.5">Primary Unit</th>
+                <th class="p-3.5">Opening Stock</th>
               </tr>
             </thead>
             <tbody id="table-body" class="divide-y divide-slate-100 text-slate-700">
