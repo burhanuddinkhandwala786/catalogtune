@@ -44,7 +44,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Universal Dynamic PDF & Image Parser Active</span>
+            <span>Standardized PCS/SET Unit Engine Active</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="Settings">
@@ -141,7 +141,7 @@
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 class="font-semibold text-slate-900 text-sm">Accountune Inventory Import Preview</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> unique items extracted dynamically for Accountune</p>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> unique items extracted with PCS/SET units</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
@@ -304,18 +304,9 @@
       return "Hardware & Locks";
     }
 
-    // Dynamic Accountune Primary Unit Resolver
+    // STANDARDIZED SAFE UNIT RESOLVER (Strictly PCS / SET)
     function detectSmartUnit(name) {
       const s = name.toLowerCase();
-
-      if (
-        s.includes("profile") || 
-        s.includes("gola profile") || 
-        s.includes("slimline profile") || 
-        /\b(mtr|meters?)\b/.test(s)
-      ) {
-        return "MTR";
-      }
 
       if (
         s.includes("drawer channel") || 
@@ -332,22 +323,6 @@
         s.includes("pack of 4")
       ) {
         return "SET";
-      }
-
-      if (
-        s.includes("dowel") || 
-        s.includes("screw") || 
-        s.includes("connector") || 
-        s.includes("cam housing") || 
-        s.includes("bracket") || 
-        s.includes("end cap") || 
-        /\b(box|boxes)\b/.test(s)
-      ) {
-        return "BOX";
-      }
-
-      if (s.includes("bottle") || s.includes("liquid") || s.includes("cleaner") || /\b(btl|bottles?)\b/.test(s)) {
-        return "BTL";
       }
 
       return "PCS";
@@ -396,7 +371,6 @@
 
           const fullPageText = textContent.items.map(item => item.str).join(' ');
           
-          // Skip cover or index pages without price data
           if (pageNum <= 3 && !/\b\d{3,6}\b/.test(fullPageText)) {
             continue;
           }
@@ -436,7 +410,6 @@
             rawRows.push({ y: currentY, items: currentRow });
           }
 
-          // Track prominent section headers dynamically
           rawRows.forEach(r => {
             const str = r.items.map(x => x.text).join(' ');
             if (r.items.length <= 3 && !str.includes("Product Name") && !str.includes("HSN") && str.length > 3 && str.length < 35) {
@@ -446,14 +419,12 @@
             }
           });
 
-          // DYNAMIC COLUMN BOUNDARY CALCULATION
-          // Determine the median X-coordinate splitting product name from middle specification columns
           let dynamicColSplitX = 270;
           const allXCoords = elements.map(e => e.x).sort((a, b) => a - b);
           if (allXCoords.length > 10) {
             const minX = allXCoords[0];
             const maxX = allXCoords[allXCoords.length - 1];
-            dynamicColSplitX = minX + (maxX - minX) * 0.40; // 40% horizontal split
+            dynamicColSplitX = minX + (maxX - minX) * 0.40;
           }
 
           for (let i = 0; i < rawRows.length; i++) {
@@ -487,7 +458,6 @@
               const cleanPrice = parseFloat(mrpRaw.replace(/[^\d.]/g, ''));
 
               if (cleanPrice > 10 && cleanPrice !== 2026 && cleanPrice !== parseFloat(sku)) {
-                // Check if next line directly below (within 12pt Y-distance) is a sub-line description
                 let subItems = [];
                 if (i + 1 < rawRows.length) {
                   const nextY = rawRows[i+1].y;
@@ -497,12 +467,11 @@
                     const nextHasPrice = nextTexts.some(t => /^\d{1,3}(?:\s\d{3})*(?:\.\d+)?$/.test(t));
                     if (!nextHasSku && !nextHasPrice) {
                       subItems = rawRows[i+1].items;
-                      i++; // Consume sub-line row!
+                      i++;
                     }
                   }
                 }
 
-                // Dynamic Column-Aware Name Stitching
                 const nameColTokens = [];
                 const specColTokens = [];
 
@@ -530,7 +499,6 @@
                   }
                 });
 
-                // Omit trailing raw Size column numbers (e.g. 250, 25, 10) if size is already in nameColTokens
                 const cleanedSpecs = [];
                 for (let k = 0; k < specColTokens.length; k++) {
                   const tok = specColTokens[k];
@@ -543,7 +511,6 @@
                   cleanedSpecs.push(tok);
                 }
 
-                // Strip trailing Std Pkg quantity numbers
                 if (cleanedSpecs.length && /^\d+$/.test(cleanedSpecs[cleanedSpecs.length - 1])) {
                   const lastNum = parseInt(cleanedSpecs[cleanedSpecs.length - 1]);
                   if ([1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 16, 20, 24, 25, 30, 40, 50, 60].includes(lastNum)) {
@@ -554,18 +521,16 @@
                 let fullTitleParts = [...nameColTokens, ...cleanedSpecs];
                 let cleanTitle = fullTitleParts.length ? fullTitleParts.join(' ').replace(/\s+/g, ' ').trim() : "Item " + sku;
 
-                // Re-attach section header if product name started with a spec label like "Up to 35 mm"
                 if (cleanTitle.toLowerCase().startsWith("up to") || cleanTitle.toLowerCase().startsWith("size") || nameColTokens.length === 0) {
                   if (lastSectionTitle && !cleanTitle.toLowerCase().includes(lastSectionTitle.toLowerCase())) {
                     cleanTitle = lastSectionTitle + " " + cleanTitle;
                   }
                 }
 
-                // GUARANTEE 100% MATCH & UNIQUENESS FOR ACCOUNTUNE INVOICE MATCHING
                 if (sku !== "N/A" && !cleanTitle.includes(`#${sku}`) && !cleanTitle.includes(sku)) {
                   cleanTitle += ` - #${sku}`;
                 } else if (sku !== "N/A" && cleanTitle.includes(sku) && !cleanTitle.includes(`#${sku}`)) {
-                  cleanTitle = cleanTitle.replace(new RegExp(`\\b${sku}\\b`, 'g'), `#${sku}`);
+                  cleanTitle = cleanTitle.replace(new RegExp(`\\b{sku}\\b`, 'g'), `#${sku}`);
                 }
 
                 if (cleanTitle.length > 2) {
@@ -822,7 +787,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', 'Accountune_Bulk_Import_Master.csv');
+      link.setAttribute('download', 'Accountune_Category_Sorted_Master.csv');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
