@@ -44,7 +44,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Accountune Unique Name Engine Active</span>
+            <span>Auto Smart UQC Engine Active</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="Settings">
@@ -67,21 +67,10 @@
         
         <div class="space-y-4">
           <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Default Opening Stock</label>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Default Opening Stock Mode</label>
             <select id="stock-setting" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
               <option value="0">0 (Order-Based / Showroom Mode)</option>
               <option value="1">1 (In-Stock Retail Mode)</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Accountune Default Unit</label>
-            <select id="unit-setting" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
-              <option value="PCS - (PIECES)">PCS - (PIECES)</option>
-              <option value="SET - (SETS)">SET - (SETS)</option>
-              <option value="BOX - (BOX)">BOX - (BOX)</option>
-              <option value="MTR - (METERS)">MTR - (METERS)</option>
-              <option value="NOS - (NUMBERS)">NOS - (NUMBERS)</option>
             </select>
           </div>
 
@@ -130,7 +119,7 @@
           <div class="flex justify-between items-center text-xs font-medium text-slate-600">
             <span id="progress-status" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
-              Extracting Items & Building Unique Names...
+              Extracting Items & Auto-Detecting UQC Units...
             </span>
             <span id="progress-percent" class="font-bold text-slate-900">0%</span>
           </div>
@@ -152,7 +141,7 @@
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 class="font-semibold text-slate-900 text-sm">Accountune Inventory Import Preview</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> 100% unique items ready for Accountune</p>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> 100% unique items with auto-detected GST UQC units</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
@@ -170,7 +159,7 @@
                 <th class="p-3.5">HSN Code</th>
                 <th class="p-3.5">Price (₹)</th>
                 <th class="p-3.5">GST Rate (%)</th>
-                <th class="p-3.5">Unit</th>
+                <th class="p-3.5">Auto UQC Unit</th>
                 <th class="p-3.5">Opening Qty</th>
               </tr>
             </thead>
@@ -193,7 +182,6 @@
 
     const apiKeyInput = document.getElementById('api-key');
     const stockSetting = document.getElementById('stock-setting');
-    const unitSetting = document.getElementById('unit-setting');
     const saveKeyBtn = document.getElementById('save-key-btn');
     const keyIndicator = document.getElementById('key-indicator');
     const openSettingsBtn = document.getElementById('open-settings-btn');
@@ -223,16 +211,12 @@
     window.addEventListener('DOMContentLoaded', () => {
       const savedKey = localStorage.getItem('catalogtune_openai_key');
       const savedStock = localStorage.getItem('catalogtune_default_stock');
-      const savedUnit = localStorage.getItem('catalogtune_default_unit');
       if (savedKey) {
         apiKeyInput.value = savedKey;
         keyIndicator.classList.remove('hidden');
       }
       if (savedStock) {
         stockSetting.value = savedStock;
-      }
-      if (savedUnit) {
-        unitSetting.value = savedUnit;
       }
     });
 
@@ -242,7 +226,6 @@
     saveKeyBtn.addEventListener('click', () => {
       const key = apiKeyInput.value.trim();
       localStorage.setItem('catalogtune_default_stock', stockSetting.value);
-      localStorage.setItem('catalogtune_default_unit', unitSetting.value);
       if (key) {
         localStorage.setItem('catalogtune_openai_key', key);
         keyIndicator.classList.remove('hidden');
@@ -321,28 +304,57 @@
       return "Hardware & Locks";
     }
 
-    // Smart GST UQC Unit Resolver
+    // AUTOMATIC SMART GST UQC RESOLVER
     function detectSmartUnit(name) {
-      const lowerName = name.toLowerCase();
+      const s = name.toLowerCase();
 
-      if (lowerName.includes("profile") || lowerName.includes("track") || lowerName.includes("gola") || lowerName.includes("mtr") || lowerName.includes("meter")) {
+      // 1. Meters / Profiles / Tracks / Channels / Gola / Runners
+      if (
+        s.includes("profile") || 
+        s.includes("track") || 
+        s.includes("gola") || 
+        s.includes("runner") || 
+        s.includes("channel") || 
+        /\b(mtr|meters?)\b/.test(s)
+      ) {
         return "MTR - (METERS)";
       }
-      if (lowerName.includes("set") || lowerName.includes("combipack") || lowerName.includes("kit") || lowerName.includes("pair") || lowerName.includes("hinge")) {
+
+      // 2. Sets / Combipacks / Pairs / Door Handles / Hinges / Systems
+      if (
+        s.includes("set") || 
+        s.includes("combipack") || 
+        s.includes("kit") || 
+        s.includes("pair") || 
+        s.includes("hinge") || 
+        s.includes("system") || 
+        s.includes("latch with handle") || 
+        s.includes("pack of 2") || 
+        s.includes("pack of 4")
+      ) {
         return "SET - (SETS)";
       }
-      if (lowerName.includes("box") || lowerName.includes("pack of") || lowerName.includes("dowel") || lowerName.includes("screw")) {
+
+      // 3. Boxes / Dowels / Screws / Connectors / Brackets / End Caps
+      if (
+        s.includes("dowel") || 
+        s.includes("screw") || 
+        s.includes("connector") || 
+        s.includes("cam housing") || 
+        s.includes("bracket") || 
+        s.includes("end cap") || 
+        /\b(box|boxes)\b/.test(s)
+      ) {
         return "BOX - (BOX)";
       }
-      if (lowerName.includes("bottle") || lowerName.includes("liquid") || lowerName.includes("cleaner")) {
+
+      // 4. Bottles / Liquids / Cleaners
+      if (s.includes("bottle") || s.includes("liquid") || s.includes("cleaner") || /\b(btl|bottles?)\b/.test(s)) {
         return "BTL - (BOTTLES)";
       }
-      if (lowerName.includes("bundle")) {
-        return "BDL - (BUNDLES)";
-      }
 
-      const userDefault = localStorage.getItem('catalogtune_default_unit');
-      return userDefault || "PCS - (PIECES)";
+      // 5. Default Standard Pieces
+      return "PCS - (PIECES)";
     }
 
     async function startProcessing(file) {
@@ -450,7 +462,6 @@
               const cleanPrice = parseFloat(mrpRaw.replace(/[^\d.]/g, ''));
 
               if (cleanPrice > 10 && cleanPrice !== 2026 && cleanPrice !== parseFloat(sku)) {
-                // Include ALL descriptive text in row to ensure unique attributes (Finish, Size, Variant) are kept
                 const nameParts = texts.filter(t => 
                   t !== mrpRaw && 
                   !/\d{8}SD\d{5}/.test(t) && 
@@ -460,7 +471,6 @@
 
                 let cleanTitle = nameParts.length ? nameParts.join(' ').replace(/\s+/g, ' ').trim() : "Item " + sku;
 
-                // GUARANTEE 100% UNIQUENESS FOR ACCOUNTUNE: Append SKU code to Item Name
                 if (sku !== "N/A" && !cleanTitle.includes(`#${sku}`) && !cleanTitle.includes(sku)) {
                   cleanTitle += ` - #${sku}`;
                 } else if (sku !== "N/A" && cleanTitle.includes(sku) && !cleanTitle.includes(`#${sku}`)) {
