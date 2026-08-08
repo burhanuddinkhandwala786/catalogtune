@@ -1,180 +1,178 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-950">
+<html lang="en" class="h-full bg-slate-50">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CatalogTune AI — Enterprise Catalog & Invoice Intelligence</title>
+  <title>CatalogTune — Minimalist Accountune Converter</title>
+
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- PDF.js & SheetJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  
+
   <style>
     body { font-family: 'Inter', sans-serif; }
-    .glass-panel {
-      background: rgba(15, 23, 42, 0.75);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
     .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
   </style>
 </head>
-<body class="h-full text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+<body class="h-full text-slate-800 antialiased selection:bg-slate-900 selection:text-white flex flex-col justify-between">
 
-  <div class="min-h-full flex flex-col">
-    <!-- Top Navigation Header -->
-    <header class="border-b border-slate-800 bg-slate-900/60 sticky top-0 z-50 backdrop-blur-md">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <i data-lucide="zap" class="w-5 h-5 text-white"></i>
+  <div>
+    <!-- Minimal Navigation Bar -->
+    <header class="border-b border-slate-200/80 bg-white sticky top-0 z-40">
+      <div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+        <!-- Brand -->
+        <div class="flex items-center gap-2.5">
+          <div class="h-8 w-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+            CT
           </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="font-bold text-lg tracking-tight text-white">CatalogTune</span>
-              <span class="text-[10px] font-semibold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full">Pro v2.5</span>
-            </div>
-          </div>
+          <span class="font-bold text-base text-slate-900 tracking-tight">CatalogTune</span>
         </div>
 
-        <div class="flex items-center gap-4">
-          <div class="flex items-center gap-2 text-xs text-slate-400 bg-slate-950/50 border border-slate-800 px-3 py-1.5 rounded-lg">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Accountune Direct Mapping Enabled</span>
+        <!-- Right Menu: Status & Settings Button -->
+        <div class="flex items-center gap-3">
+          <div class="hidden sm:flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span>Accountune Ready</span>
           </div>
+
+          <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+            <span id="key-indicator" class="hidden absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full"></span>
+          </button>
         </div>
       </div>
     </header>
 
-    <!-- Main Content Area -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6">
-
-      <!-- Settings Banner / API Key Configuration -->
-      <div class="glass-panel rounded-2xl p-5 border border-slate-800/80 shadow-2xl">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div class="flex items-center gap-3">
-            <div class="p-2.5 rounded-xl bg-slate-800/80 text-slate-300 border border-slate-700/50">
-              <i data-lucide="key" class="w-5 h-5"></i>
-            </div>
-            <div>
-              <h3 class="text-sm font-semibold text-white">Engine Authentication</h3>
-              <p class="text-xs text-slate-400">OpenAI API key stored locally in browser memory</p>
-            </div>
+    <!-- Settings Modal (API Key Configuration) -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-slate-900">API Key Settings</h3>
+          <button id="close-settings-btn" class="text-slate-400 hover:text-slate-600 p-1">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+        <p class="text-xs text-slate-500 mb-4">Your OpenAI key is stored locally in your browser memory and never uploaded to any server.</p>
+        
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">OpenAI API Key</label>
+            <input type="password" id="api-key" placeholder="sk-proj-..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
           </div>
-
-          <div class="flex items-center gap-2 w-full sm:w-auto">
-            <div class="relative flex-1 sm:w-80">
-              <input type="password" id="api-key" placeholder="sk-proj-..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
-              <span id="key-saved-badge" class="hidden absolute right-2.5 top-2.5 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md font-medium">Saved</span>
-            </div>
-            <button id="save-key-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm px-4 py-2 rounded-xl transition shadow-lg shadow-indigo-600/20 flex items-center gap-1.5 whitespace-nowrap">
-              <i data-lucide="save" class="w-4 h-4"></i>
-              <span>Save Key</span>
-            </button>
-          </div>
+          <button id="save-key-btn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm py-2.5 rounded-xl transition shadow-sm">
+            Save Key
+          </button>
         </div>
       </div>
+    </div>
 
-      <!-- Error Notification Box -->
-      <div id="error-box" class="hidden bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-2xl p-4 text-xs font-medium flex items-center gap-3">
-        <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-400 shrink-0"></i>
-        <span id="error-message">An error occurred during extraction.</span>
+    <!-- Main Content Workspace -->
+    <main class="max-w-4xl mx-auto px-6 py-12">
+
+      <!-- Error Message Banner -->
+      <div id="error-box" class="hidden mb-6 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-xs font-medium flex items-center gap-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 text-rose-500"></i>
+        <span id="error-message">Error processing file.</span>
       </div>
 
-      <!-- Drag & Drop Upload Portal -->
-      <div class="glass-panel rounded-2xl p-8 border border-slate-800/80 text-center relative overflow-hidden group">
-        <div id="drop-area" class="border-2 border-dashed border-slate-800 hover:border-indigo-500/50 rounded-xl p-10 transition duration-300 cursor-pointer bg-slate-950/40 hover:bg-slate-900/30 flex flex-col items-center justify-center gap-4">
-          <div class="p-4 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group-hover:scale-110 transition duration-300">
-            <i data-lucide="file-up" class="w-8 h-8"></i>
+      <!-- Clean Centered Upload Section -->
+      <div id="upload-card" class="bg-white rounded-2xl border border-slate-200/80 p-10 text-center shadow-sm">
+        <div id="drop-area" class="group cursor-pointer flex flex-col items-center justify-center py-8 px-4 transition">
+          <div class="h-12 w-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mb-4 group-hover:bg-slate-900 group-hover:text-white transition-all duration-300 shadow-sm">
+            <i data-lucide="upload-cloud" class="w-6 h-6"></i>
           </div>
-          <div>
-            <h3 class="text-base font-semibold text-white mb-1">Upload Price Catalog or Invoice</h3>
-            <p class="text-xs text-slate-400 max-w-sm mx-auto">Drag & drop PDF catalog or image files</p>
-          </div>
+          <h2 class="text-base font-semibold text-slate-900 mb-1">Upload Catalog or Invoice</h2>
+          <p class="text-xs text-slate-500 max-w-sm mb-6">Drag and drop your multi-page PDF catalog or document images</p>
+          
+          <button class="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs px-5 py-2.5 rounded-xl transition shadow-sm">
+            Select File
+          </button>
           <input type="file" id="file-input" accept="application/pdf,image/*" class="hidden">
         </div>
 
-        <!-- Real-Time Progress Overlay -->
-        <div id="progress-container" class="hidden mt-6 bg-slate-950/80 border border-slate-800 rounded-xl p-5 text-left">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-              <div id="spinner" class="border-2 border-indigo-500 border-t-transparent rounded-full w-4 h-4 animate-spin"></div>
-              <span id="progress-status" class="text-xs font-medium text-slate-200">Initializing Extraction...</span>
-            </div>
-            <span id="progress-percent" class="text-xs font-bold text-indigo-400">0%</span>
+        <!-- Smooth Progress Indicator -->
+        <div id="progress-container" class="hidden mt-6 pt-6 border-t border-slate-100 text-left">
+          <div class="flex justify-between items-center text-xs font-medium text-slate-600 mb-2">
+            <span id="progress-status">Reading pages...</span>
+            <span id="progress-percent" class="font-bold text-slate-900">0%</span>
           </div>
-          <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
-            <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 w-0 transition-all duration-300"></div>
+          <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+            <div id="progress-bar" class="bg-slate-900 h-2 w-0 transition-all duration-300"></div>
           </div>
         </div>
       </div>
 
-      <!-- Live Results Dashboard Table -->
-      <div id="results-card" class="hidden glass-panel rounded-2xl border border-slate-800/80 overflow-hidden shadow-2xl flex-1 flex flex-col">
-        <!-- Dashboard Header Bar -->
-        <div class="p-5 border-b border-slate-800 bg-slate-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div class="flex items-center gap-3">
-            <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <i data-lucide="table" class="w-5 h-5"></i>
-            </div>
-            <div>
-              <h2 class="text-sm font-bold text-white">Extracted Catalog Database</h2>
-              <p class="text-xs text-slate-400">Total Items Parsed: <span id="count" class="font-semibold text-indigo-400">0</span></p>
-            </div>
+      <!-- Results Table Card -->
+      <div id="results-card" class="hidden bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mt-8">
+        <!-- Table Header & Action -->
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 class="font-semibold text-slate-900 text-sm">Extracted Products</h3>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items ready for Accountune</p>
           </div>
-
-          <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center gap-2">
+          <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
-            <span>Export Accountune Excel</span>
+            <span>Export Excel</span>
           </button>
         </div>
 
-        <!-- Table Container -->
-        <div class="overflow-x-auto overflow-y-auto max-h-[550px] custom-scrollbar">
+        <!-- Table -->
+        <div class="overflow-x-auto max-h-[480px] custom-scrollbar">
           <table class="w-full text-left border-collapse text-xs">
-            <thead class="sticky top-0 bg-slate-900/90 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider backdrop-blur-md">
+            <thead class="sticky top-0 bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider">
               <tr>
                 <th class="p-3.5">Item Name</th>
                 <th class="p-3.5">SKU / Code</th>
                 <th class="p-3.5">HSN Code</th>
-                <th class="p-3.5">Sales Price (₹)</th>
+                <th class="p-3.5">Price (₹)</th>
                 <th class="p-3.5">Tax Rate</th>
                 <th class="p-3.5">Unit</th>
-                <th class="p-3.5">Opening Stock</th>
+                <th class="p-3.5">Stock</th>
               </tr>
             </thead>
-            <tbody id="table-body" class="divide-y divide-slate-800/60 text-slate-300">
+            <tbody id="table-body" class="divide-y divide-slate-100 text-slate-700">
             </tbody>
           </table>
         </div>
       </div>
 
     </main>
-
-    <footer class="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-600">
-      CatalogTune AI &copy; 2026 — Optimized for High-Speed Accountune Invoicing & Inventory Workflows
-    </footer>
   </div>
+
+  <!-- Footer -->
+  <footer class="py-6 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white">
+    CatalogTune — Fast, Compliant Accountune Import Generation
+  </footer>
 
   <script>
     lucide.createIcons();
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+    // UI Elements
     const apiKeyInput = document.getElementById('api-key');
     const saveKeyBtn = document.getElementById('save-key-btn');
-    const keySavedBadge = document.getElementById('key-saved-badge');
+    const keyIndicator = document.getElementById('key-indicator');
+    const openSettingsBtn = document.getElementById('open-settings-btn');
+    const closeSettingsBtn = document.getElementById('close-settings-btn');
+    const settingsModal = document.getElementById('settings-modal');
+
     const fileInput = document.getElementById('file-input');
     const dropArea = document.getElementById('drop-area');
     const progressContainer = document.getElementById('progress-container');
     const progressStatus = document.getElementById('progress-status');
     const progressPercent = document.getElementById('progress-percent');
     const progressBar = document.getElementById('progress-bar');
-    const spinner = document.getElementById('spinner');
+
     const resultsCard = document.getElementById('results-card');
     const tableBody = document.getElementById('table-body');
     const countSpan = document.getElementById('count');
@@ -183,27 +181,34 @@
     const errorMessage = document.getElementById('error-message');
 
     let allItems = [];
-    const BATCH_SIZE = 2; // Reduced batch size for improved stability
+    const BATCH_SIZE = 2;
 
+    // Load API Key
     window.addEventListener('DOMContentLoaded', () => {
       const savedKey = localStorage.getItem('catalogtune_openai_key');
       if (savedKey) {
         apiKeyInput.value = savedKey;
-        keySavedBadge.classList.remove('hidden');
+        keyIndicator.classList.remove('hidden');
       }
     });
+
+    // Settings Modal Toggles
+    openSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+    closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
 
     saveKeyBtn.addEventListener('click', () => {
       const key = apiKeyInput.value.trim();
       if (key) {
         localStorage.setItem('catalogtune_openai_key', key);
-        keySavedBadge.classList.remove('hidden');
+        keyIndicator.classList.remove('hidden');
+        settingsModal.classList.add('hidden');
       } else {
         localStorage.removeItem('catalogtune_openai_key');
-        keySavedBadge.classList.add('hidden');
+        keyIndicator.classList.add('hidden');
       }
     });
 
+    // File Upload Handlers
     dropArea.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', (e) => { if (e.target.files.length) startProcessing(e.target.files[0]); });
 
@@ -221,6 +226,7 @@
       let apiKey = apiKeyInput.value.trim() || localStorage.getItem('catalogtune_openai_key');
 
       if (!apiKey) {
+        settingsModal.classList.remove('hidden');
         showError("Please enter and save your OpenAI API Key first.");
         return;
       }
@@ -229,7 +235,6 @@
       tableBody.innerHTML = '';
       resultsCard.classList.add('hidden');
       progressContainer.classList.remove('hidden');
-      spinner.classList.add('animate-spin');
 
       if (file.type === 'application/pdf') {
         await processPDFParallel(file, apiKey);
@@ -243,7 +248,6 @@
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const totalPages = pdf.numPages;
-
         let completedPages = 0;
 
         for (let i = 1; i <= totalPages; i += BATCH_SIZE) {
@@ -264,21 +268,21 @@
               await extractItemsFromImageBase64(base64Image, apiKey);
 
               completedPages++;
-              updateProgress(completedPages, totalPages, `Processing Page ${completedPages} of ${totalPages}...`);
+              updateProgress(completedPages, totalPages, `Extracting Page ${completedPages} of ${totalPages}...`);
             })());
           }
 
           await Promise.all(batchProms);
         }
       } catch (err) {
-        showError("PDF Loading Error: " + err.message);
+        showError("Failed to parse PDF: " + err.message);
       }
 
       finishProcessing();
     }
 
     async function processSingleImage(file, apiKey) {
-      updateProgress(1, 1, "Extracting Image Data...");
+      updateProgress(1, 1, "Reading Image...");
       const reader = new FileReader();
       reader.onload = async () => {
         const base64Image = reader.result.split(',')[1];
@@ -325,7 +329,7 @@
 
         const data = await response.json();
         if (data.error) {
-          showError("OpenAI API Error: " + data.error.message);
+          showError("API Error: " + data.error.message);
           return;
         }
 
@@ -349,8 +353,7 @@
 
         renderLiveResults();
       } catch (err) {
-        console.error("API Call Exception:", err);
-        showError("Network/API Error: " + err.message);
+        showError("Extraction Error: " + err.message);
       }
     }
 
@@ -364,36 +367,32 @@
     function renderLiveResults() {
       countSpan.textContent = allItems.length;
       tableBody.innerHTML = allItems.map(item => `
-        <tr class="border-b border-slate-800/40 hover:bg-slate-900/60 transition">
-          <td class="p-3.5 font-medium text-white">${item['Item Name']}</td>
-          <td class="p-3.5 text-slate-400 font-mono">${item['Item Code / SKU']}</td>
-          <td class="p-3.5 text-slate-400 font-mono">${item['HSN Code']}</td>
-          <td class="p-3.5 text-slate-200 font-semibold">₹${item['Sales Price'].toLocaleString('en-IN')}</td>
-          <td class="p-3.5 text-slate-400">${item['Tax Rate (%)']}</td>
-          <td class="p-3.5 text-slate-400">${item['Primary Unit']}</td>
-          <td class="p-3.5 font-bold text-emerald-400">${item['Opening Stock']}</td>
+        <tr class="hover:bg-slate-50 transition">
+          <td class="p-3.5 font-medium text-slate-900">${item['Item Name']}</td>
+          <td class="p-3.5 font-mono text-slate-500">${item['Item Code / SKU']}</td>
+          <td class="p-3.5 font-mono text-slate-500">${item['HSN Code']}</td>
+          <td class="p-3.5 font-semibold text-slate-900">₹${item['Sales Price'].toLocaleString('en-IN')}</td>
+          <td class="p-3.5 text-slate-500">${item['Tax Rate (%)']}</td>
+          <td class="p-3.5 text-slate-500">${item['Primary Unit']}</td>
+          <td class="p-3.5 font-bold text-emerald-600">${item['Opening Stock']}</td>
         </tr>
       `).join('');
       resultsCard.classList.remove('hidden');
     }
 
     function finishProcessing() {
-      spinner.classList.remove('animate-spin');
-      progressStatus.textContent = "Extraction & Verification Complete!";
+      progressStatus.textContent = "Processing complete";
       progressPercent.textContent = "100%";
       progressBar.style.width = "100%";
       resultsCard.classList.remove('hidden');
     }
 
     downloadBtn.addEventListener('click', () => {
-      if (!allItems.length) {
-        alert("No items extracted to export.");
-        return;
-      }
+      if (!allItems.length) return;
       const worksheet = XLSX.utils.json_to_sheet(allItems);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Accountune_Master_Import");
-      XLSX.writeFile(workbook, "Accountune_Bulk_Import_Master.xlsx");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Accountune_Master");
+      XLSX.writeFile(workbook, "Accountune_Bulk_Import.xlsx");
     });
   </script>
 </body>
