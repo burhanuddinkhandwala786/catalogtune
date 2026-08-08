@@ -1,7 +1,4 @@
-const { OpenAI } = require('openai');
-
 exports.handler = async (event, context) => {
-  // CORS Headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -24,9 +21,7 @@ exports.handler = async (event, context) => {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'No image provided' }) };
     }
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
+    const apiKey = process.env.OPENROUTER_API_KEY;
 
     const prompt = `
     Extract all product line items from this catalog or invoice image.
@@ -41,28 +36,38 @@ exports.handler = async (event, context) => {
     "itemName", "itemCode", "hsnCode", "salesPrice", "unit"
     `;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:image/jpeg;base64,${imageBase64}`,
-                detail: 'high'
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.0-flash-lite-001", // Fast, accurate vision model with a free tier
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              {
+                type: "image_url",
+                image_url: { url: `data:image/jpeg;base64,${imageBase64}` }
               }
-            }
-          ]
-        }
-      ],
-      temperature: 0
+            ]
+          }
+        ]
+      })
     });
 
-    const parsedData = JSON.loads ? JSON.loads(response.choices[0].message.content) : JSON.parse(response.choices[0].message.content);
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+
+    let content = data.choices[0].message.content;
+    
+    // Clean JSON formatting if model wraps output in markdown code blocks
+    content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    const parsedData = JSON.parse(content);
     const rawItems = parsedData.items || [];
 
     // Format & enforce Accountune rules
