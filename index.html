@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CatalogTune Engine — Accountune Import Generator</title>
+  <title>CatalogTune Engine — Accountune Bulk Import Generator</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -44,7 +44,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Accountune Verified Format</span>
+            <span>Accountune Native Template Format</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="Settings">
@@ -67,7 +67,7 @@
         
         <div class="space-y-4">
           <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Default Opening Stock</label>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Default Opening Quantity</label>
             <select id="stock-setting" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
               <option value="0">0 (Order-Based / Showroom Mode)</option>
               <option value="1">1 (In-Stock Retail Mode)</option>
@@ -131,7 +131,7 @@
           <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
             <span>Pages / Files: <b id="pages-stat" class="text-slate-800">0/0</b></span>
             <span>Products Found: <b id="items-stat" class="text-emerald-600">0</b></span>
-            <button id="cancel-btn" class="text-rose-500 hover:underline font-medium hidden">Stop Processing</button>
+            <button id="cancel-btn" class="text-rose-500 hover:underline font-medium hidden">Stop</button>
           </div>
         </div>
       </div>
@@ -140,7 +140,7 @@
       <div id="results-card" class="hidden bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mt-6">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 class="font-semibold text-slate-900 text-sm">Accountune Inventory Master Preview</h3>
+            <h3 class="font-semibold text-slate-900 text-sm">Accountune Native Inventory Import Preview</h3>
             <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items formatted for Accountune Bulk Import</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
@@ -153,13 +153,14 @@
           <table class="w-full text-left border-collapse text-xs">
             <thead class="sticky top-0 bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider">
               <tr>
-                <th class="p-3.5">Item Name</th>
-                <th class="p-3.5">SKU / Code</th>
+                <th class="p-3.5">Type</th>
+                <th class="p-3.5">Name</th>
+                <th class="p-3.5">Item Code</th>
                 <th class="p-3.5">HSN Code</th>
-                <th class="p-3.5">Sales Price (₹)</th>
-                <th class="p-3.5">Tax Rate (%)</th>
-                <th class="p-3.5">Primary Unit</th>
-                <th class="p-3.5">Opening Stock</th>
+                <th class="p-3.5">Price (₹)</th>
+                <th class="p-3.5">GST Rate</th>
+                <th class="p-3.5">Unit</th>
+                <th class="p-3.5">Opening Qty</th>
               </tr>
             </thead>
             <tbody id="table-body" class="divide-y divide-slate-100 text-slate-700">
@@ -273,7 +274,7 @@
         let currentHSN = "83014090";
         const defaultStock = parseInt(localStorage.getItem('catalogtune_default_stock') || "0");
 
-        // Skip cover and index pages (1-3). Start parsing at Page 4.
+        // Skip cover/index (Page 1-3). Start parsing at Page 4.
         for (let pageNum = 4; pageNum <= totalPages; pageNum++) {
           if (isCancelled) {
             progressStatus.textContent = "Stopped by user.";
@@ -365,14 +366,34 @@
                 const cleanTitle = nameParts.length ? nameParts.join(' ').replace(/\s+/g, ' ').trim() : "Item " + sku;
 
                 if (cleanTitle.length > 2) {
+                  // Format strictly according to Accountune's CSV/Excel Bulk Import Schema
                   allExtractedItems.push({
-                    "Item Name": cleanTitle,
-                    "Item Code / SKU": sku,
-                    "HSN Code": currentHSN,
-                    "Sales Price": cleanPrice,
-                    "Tax Rate (%)": "18%",
-                    "Primary Unit": "Pcs",
-                    "Opening Stock": defaultStock
+                    "Type": "Goods",
+                    "Name": cleanTitle,
+                    "Description": cleanTitle,
+                    "Primary Unit": "BAG", // Default Accountune primary unit code
+                    "HSN Code": parseInt(currentHSN) || 83014090,
+                    "SAC Code": "",
+                    "GST Rate": 18, // Pure numeric value without % symbol
+                    "CESS Rate": 0,
+                    "Category": "",
+                    "Secondary Unit Applicable": "No",
+                    "Secondary Unit": "",
+                    "Ratio": "",
+                    "Item Code": sku,
+                    "Default Selling Price Per Primary Unit": cleanPrice,
+                    "Primary Price Including Tax": "Yes", // Godrej MRP is inclusive of tax
+                    "Default Selling Price Per Secondary Unit": 0,
+                    "Secondary Price Including Tax": "No",
+                    "Default Purchase Price Per Primary Unit": 0,
+                    "Primary Purchase Price Including Tax": "No",
+                    "Default Purchase Price Per Secondary Unit": 0,
+                    "Secondary Purchase Price Including Tax": "No",
+                    "Default Unit for Purchase": "Primary",
+                    "Default Unit for Sales": "Primary",
+                    "Opening Quantity": defaultStock,
+                    "Opening Rate": cleanPrice,
+                    "Variant": "No"
                   });
                 }
               }
@@ -449,18 +470,37 @@
         const rawItems = content.items || [];
 
         rawItems.forEach(item => {
-          let cleanPrice = String(item.salesPrice || '0').replace(/[^\d.]/g, '');
-          let hsn = String(item.hsnCode || '83014090').replace(/[^\d]/g, '');
+          let cleanPrice = parseFloat(String(item.salesPrice || '0').replace(/[^\d.]/g, '')) || 0;
+          let hsn = parseInt(String(item.hsnCode || '83014090').replace(/[^\d]/g, '')) || 83014090;
 
-          if (cleanPrice && cleanPrice !== '0') {
+          if (cleanPrice > 0) {
             allExtractedItems.push({
-              "Item Name": item.itemName || 'Unnamed Product',
-              "Item Code / SKU": item.itemCode || 'N/A',
-              "HSN Code": hsn || '83014090',
-              "Sales Price": parseFloat(cleanPrice) || 0,
-              "Tax Rate (%)": "18%",
-              "Primary Unit": item.unit || 'Pcs',
-              "Opening Stock": defaultStock
+              "Type": "Goods",
+              "Name": item.itemName || 'Unnamed Product',
+              "Description": item.itemName || 'Unnamed Product',
+              "Primary Unit": "BAG",
+              "HSN Code": hsn,
+              "SAC Code": "",
+              "GST Rate": 18,
+              "CESS Rate": 0,
+              "Category": "",
+              "Secondary Unit Applicable": "No",
+              "Secondary Unit": "",
+              "Ratio": "",
+              "Item Code": item.itemCode || 'N/A',
+              "Default Selling Price Per Primary Unit": cleanPrice,
+              "Primary Price Including Tax": "Yes",
+              "Default Selling Price Per Secondary Unit": 0,
+              "Secondary Price Including Tax": "No",
+              "Default Purchase Price Per Primary Unit": 0,
+              "Primary Purchase Price Including Tax": "No",
+              "Default Purchase Price Per Secondary Unit": 0,
+              "Secondary Purchase Price Including Tax": "No",
+              "Default Unit for Purchase": "Primary",
+              "Default Unit for Sales": "Primary",
+              "Opening Quantity": defaultStock,
+              "Opening Rate": cleanPrice,
+              "Variant": "No"
             });
           }
         });
@@ -486,13 +526,32 @@
           let name = line.replace(/[0-9]/g, '').replace(/[\/|-]/g, ' ').trim();
           if (name.length > 3 && price > 10) {
             allExtractedItems.push({
-              "Item Name": name,
-              "Item Code / SKU": itemCode,
-              "HSN Code": "83014090",
-              "Sales Price": price,
-              "Tax Rate (%)": "18%",
-              "Primary Unit": "Pcs",
-              "Opening Stock": defaultStock
+              "Type": "Goods",
+              "Name": name,
+              "Description": name,
+              "Primary Unit": "BAG",
+              "HSN Code": 83014090,
+              "SAC Code": "",
+              "GST Rate": 18,
+              "CESS Rate": 0,
+              "Category": "",
+              "Secondary Unit Applicable": "No",
+              "Secondary Unit": "",
+              "Ratio": "",
+              "Item Code": itemCode,
+              "Default Selling Price Per Primary Unit": price,
+              "Primary Price Including Tax": "Yes",
+              "Default Selling Price Per Secondary Unit": 0,
+              "Secondary Price Including Tax": "No",
+              "Default Purchase Price Per Primary Unit": 0,
+              "Primary Purchase Price Including Tax": "No",
+              "Default Purchase Price Per Secondary Unit": 0,
+              "Secondary Purchase Price Including Tax": "No",
+              "Default Unit for Purchase": "Primary",
+              "Default Unit for Sales": "Primary",
+              "Opening Quantity": defaultStock,
+              "Opening Rate": price,
+              "Variant": "No"
             });
           }
         }
@@ -512,7 +571,7 @@
     function renderLiveResults() {
       const uniqueMap = new Map();
       allExtractedItems.forEach(item => {
-        const key = item["Item Code / SKU"] !== "N/A" ? item["Item Code / SKU"] : item["Item Name"];
+        const key = item["Item Code"] !== "N/A" ? item["Item Code"] : item["Name"];
         if (!uniqueMap.has(key)) {
           uniqueMap.set(key, item);
         }
@@ -523,13 +582,14 @@
       countSpan.textContent = displayItems.length;
       tableBody.innerHTML = displayItems.map(item => `
         <tr class="hover:bg-slate-50 transition">
-          <td class="p-3.5 font-medium text-slate-900">${item['Item Name']}</td>
-          <td class="p-3.5 font-mono text-slate-500">${item['Item Code / SKU']}</td>
+          <td class="p-3.5 font-medium text-slate-900">${item['Type']}</td>
+          <td class="p-3.5 font-medium text-slate-900">${item['Name']}</td>
+          <td class="p-3.5 font-mono text-slate-500">${item['Item Code']}</td>
           <td class="p-3.5 font-mono text-slate-500">${item['HSN Code']}</td>
-          <td class="p-3.5 font-semibold text-slate-900">₹${item['Sales Price'].toLocaleString('en-IN')}</td>
-          <td class="p-3.5 text-slate-500">${item['Tax Rate (%)']}</td>
+          <td class="p-3.5 font-semibold text-slate-900">₹${item['Default Selling Price Per Primary Unit'].toLocaleString('en-IN')}</td>
+          <td class="p-3.5 text-slate-500">${item['GST Rate']}%</td>
           <td class="p-3.5 text-slate-500">${item['Primary Unit']}</td>
-          <td class="p-3.5 font-bold text-emerald-600">${item['Opening Stock']}</td>
+          <td class="p-3.5 font-bold text-emerald-600">${item['Opening Quantity']}</td>
         </tr>
       `).join('');
       resultsCard.classList.remove('hidden');
@@ -546,7 +606,7 @@
     downloadBtn.addEventListener('click', () => {
       const uniqueMap = new Map();
       allExtractedItems.forEach(item => {
-        const key = item["Item Code / SKU"] !== "N/A" ? item["Item Code / SKU"] : item["Item Name"];
+        const key = item["Item Code"] !== "N/A" ? item["Item Code"] : item["Name"];
         if (!uniqueMap.has(key)) {
           uniqueMap.set(key, item);
         }
@@ -556,8 +616,8 @@
       if (!exportData.length) return;
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Accountune_Master");
-      XLSX.writeFile(workbook, "Accountune_Bulk_Import_Master.xlsx");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+      XLSX.writeFile(workbook, "Accountune_Bulk_Create_Items.xlsx");
     });
   </script>
 </body>
