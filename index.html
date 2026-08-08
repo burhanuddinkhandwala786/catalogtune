@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CatalogTune Pro — Universal B2B Catalog & Invoice Converter</title>
+  <title>CatalogTune Engine — Accountune Import Generator</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -38,16 +38,16 @@
           <div class="h-8 w-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-sm">
             CT
           </div>
-          <span class="font-bold text-base text-slate-900 tracking-tight">CatalogTune</span>
+          <span class="font-bold text-base text-slate-900 tracking-tight">CatalogTune Engine</span>
         </div>
 
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Universal ERP Export (Tally • Vyapar • Zoho • Excel)</span>
+            <span>Accountune Verified Format</span>
           </div>
 
-          <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="API Settings">
+          <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="Settings">
             <i data-lucide="settings" class="w-5 h-5"></i>
             <span id="key-indicator" class="hidden absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full"></span>
           </button>
@@ -77,7 +77,7 @@
           <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">OpenAI API Key (Optional)</label>
             <input type="password" id="api-key" placeholder="sk-proj-..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
-            <p class="text-[11px] text-slate-400 mt-1">Enhances accuracy for scanned image catalogs. Saved locally in browser.</p>
+            <p class="text-[11px] text-slate-400 mt-1">Improves vision accuracy for scanned image catalogs. Saved locally.</p>
           </div>
 
           <button id="save-key-btn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm py-2.5 rounded-xl transition shadow-sm">
@@ -105,8 +105,8 @@
           <div class="h-12 w-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mb-4 group-hover:bg-slate-900 group-hover:text-white transition-all duration-300 shadow-sm">
             <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
           </div>
-          <h2 class="text-base font-semibold text-slate-900 mb-1">Convert Any Catalog or Invoice</h2>
-          <p class="text-xs text-slate-500 max-w-sm mb-6">Drag & drop multi-page PDF price lists, vendor invoices, or product images</p>
+          <h2 class="text-base font-semibold text-slate-900 mb-1">Convert Catalog to Accountune Import</h2>
+          <p class="text-xs text-slate-500 max-w-sm mb-6">Drop your Godrej price list PDF or invoice images</p>
           
           <button class="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs px-5 py-2.5 rounded-xl transition shadow-sm">
             Select Document
@@ -119,7 +119,7 @@
           <div class="flex justify-between items-center text-xs font-medium text-slate-600">
             <span id="progress-status" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
-              Parsing Document...
+              Extracting Tables...
             </span>
             <span id="progress-percent" class="font-bold text-slate-900">0%</span>
           </div>
@@ -129,8 +129,8 @@
           </div>
 
           <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-            <span>Progress: <b id="pages-stat" class="text-slate-800">0/0</b></span>
-            <span>Items Extracted: <b id="items-stat" class="text-emerald-600">0</b></span>
+            <span>Pages / Files: <b id="pages-stat" class="text-slate-800">0/0</b></span>
+            <span>Products Found: <b id="items-stat" class="text-emerald-600">0</b></span>
             <button id="cancel-btn" class="text-rose-500 hover:underline font-medium hidden">Stop</button>
           </div>
         </div>
@@ -140,12 +140,12 @@
       <div id="results-card" class="hidden bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mt-6">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 class="font-semibold text-slate-900 text-sm">Extracted Inventory Master</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items ready for ERP import</p>
+            <h3 class="font-semibold text-slate-900 text-sm">Accountune Inventory Master Preview</h3>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items formatted for Accountune Bulk Import</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
-            <span>Export Universal Excel</span>
+            <span>Export Accountune Excel</span>
           </button>
         </div>
 
@@ -154,12 +154,12 @@
             <thead class="sticky top-0 bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider">
               <tr>
                 <th class="p-3.5">Item Name</th>
-                <th class="p-3.5">SKU / Item Code</th>
+                <th class="p-3.5">SKU / Code</th>
                 <th class="p-3.5">HSN Code</th>
                 <th class="p-3.5">Sales Price (₹)</th>
-                <th class="p-3.5">Tax Rate</th>
-                <th class="p-3.5">Unit</th>
-                <th class="p-3.5">Stock</th>
+                <th class="p-3.5">Tax Rate (%)</th>
+                <th class="p-3.5">Primary Unit</th>
+                <th class="p-3.5">Opening Stock</th>
               </tr>
             </thead>
             <tbody id="table-body" class="divide-y divide-slate-100 text-slate-700">
@@ -172,7 +172,7 @@
   </div>
 
   <footer class="py-5 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white">
-    CatalogTune — Universal Inventory Import Generation for Retailers & Wholesalers
+    CatalogTune — Fast, Compliant Accountune Import Generation
   </footer>
 
   <script>
@@ -273,6 +273,7 @@
         let currentHSN = "83014090";
         const defaultStock = parseInt(localStorage.getItem('catalogtune_default_stock') || "0");
 
+        // Skip cover/index (Page 1-3). Start at Page 4.
         for (let pageNum = 4; pageNum <= totalPages; pageNum++) {
           if (isCancelled) {
             progressStatus.textContent = "Stopped by user.";
@@ -280,7 +281,7 @@
           }
 
           pagesStat.textContent = `${pageNum}/${totalPages}`;
-          updateProgress(pageNum, totalPages, `Processing Page ${pageNum} of ${totalPages}...`);
+          updateProgress(pageNum, totalPages, `Extracting Page ${pageNum} of ${totalPages}...`);
 
           const page = await pdf.getPage(pageNum);
           const textContent = await page.getTextContent();
@@ -361,7 +362,7 @@
                   !t.startsWith("(") && !t.endsWith(")")
                 );
 
-                const cleanTitle = nameParts.length ? nameParts.join(' ').replace(/\s+/g, ' ').trim() : "Product " + sku;
+                const cleanTitle = nameParts.length ? nameParts.join(' ').replace(/\s+/g, ' ').trim() : "Godrej Item " + sku;
 
                 if (cleanTitle.length > 2) {
                   allExtractedItems.push({
@@ -383,7 +384,7 @@
         }
 
       } catch (err) {
-        showError("PDF Extraction Error: " + err.message);
+        showError("PDF Processing Exception: " + err.message);
       }
 
       finishProcessing();
@@ -555,8 +556,8 @@
       if (!exportData.length) return;
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory_Master");
-      XLSX.writeFile(workbook, "Universal_Inventory_Master.xlsx");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Accountune_Master");
+      XLSX.writeFile(workbook, "Accountune_Bulk_Import_Master.xlsx");
     });
   </script>
 </body>
