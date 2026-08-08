@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CatalogTune Pro — Accountune Master Import Generator</title>
+  <title>CatalogTune Pro — Universal B2B Catalog & Invoice Converter</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -38,13 +38,13 @@
           <div class="h-8 w-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-sm">
             CT
           </div>
-          <span class="font-bold text-base text-slate-900 tracking-tight">CatalogTune Engine</span>
+          <span class="font-bold text-base text-slate-900 tracking-tight">CatalogTune</span>
         </div>
 
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Accountune Template Mode Active</span>
+            <span>Universal ERP Export (Tally • Vyapar • Zoho • Excel)</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="API Settings">
@@ -59,20 +59,29 @@
     <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-semibold text-slate-900">API Key Settings (Optional)</h3>
+          <h3 class="font-semibold text-slate-900">Engine Settings</h3>
           <button id="close-settings-btn" class="text-slate-400 hover:text-slate-600 p-1">
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
-        <p class="text-xs text-slate-500 mb-4">OpenAI Vision improves image accuracy. If unconfigured, Tesseract OCR is used automatically.</p>
         
         <div class="space-y-4">
           <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">OpenAI API Key</label>
-            <input type="password" id="api-key" placeholder="sk-proj-..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Default Opening Stock</label>
+            <select id="stock-setting" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
+              <option value="0">0 (Order-Based / Showroom Mode)</option>
+              <option value="1">1 (In-Stock Retail Mode)</option>
+            </select>
           </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">OpenAI API Key (Optional)</label>
+            <input type="password" id="api-key" placeholder="sk-proj-..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
+            <p class="text-[11px] text-slate-400 mt-1">Enhances accuracy for scanned image catalogs. Saved locally in browser.</p>
+          </div>
+
           <button id="save-key-btn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm py-2.5 rounded-xl transition shadow-sm">
-            Save Key
+            Save Settings
           </button>
         </div>
       </div>
@@ -94,13 +103,13 @@
       <div id="upload-card" class="bg-white rounded-2xl border border-slate-200/80 p-8 text-center shadow-sm">
         <div id="drop-area" class="group cursor-pointer flex flex-col items-center justify-center py-8 px-4 transition">
           <div class="h-12 w-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mb-4 group-hover:bg-slate-900 group-hover:text-white transition-all duration-300 shadow-sm">
-            <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+            <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
           </div>
-          <h2 class="text-base font-semibold text-slate-900 mb-1">Upload Catalog PDF or Image</h2>
-          <p class="text-xs text-slate-500 max-w-sm mb-6">Supports multi-page PDF catalogs, JPEG, PNG, and scanned document images</p>
+          <h2 class="text-base font-semibold text-slate-900 mb-1">Convert Any Catalog or Invoice</h2>
+          <p class="text-xs text-slate-500 max-w-sm mb-6">Drag & drop multi-page PDF price lists, vendor invoices, or product images</p>
           
           <button class="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs px-5 py-2.5 rounded-xl transition shadow-sm">
-            Select File
+            Select Document
           </button>
           <input type="file" id="file-input" accept="application/pdf,image/*" class="hidden">
         </div>
@@ -110,7 +119,7 @@
           <div class="flex justify-between items-center text-xs font-medium text-slate-600">
             <span id="progress-status" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
-              Initializing Engine...
+              Parsing Document...
             </span>
             <span id="progress-percent" class="font-bold text-slate-900">0%</span>
           </div>
@@ -120,9 +129,9 @@
           </div>
 
           <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-            <span>Pages / Files: <b id="pages-stat" class="text-slate-800">0/0</b></span>
-            <span>Products Found: <b id="items-stat" class="text-emerald-600">0</b></span>
-            <button id="cancel-btn" class="text-rose-500 hover:underline font-medium hidden">Stop Extraction</button>
+            <span>Progress: <b id="pages-stat" class="text-slate-800">0/0</b></span>
+            <span>Items Extracted: <b id="items-stat" class="text-emerald-600">0</b></span>
+            <button id="cancel-btn" class="text-rose-500 hover:underline font-medium hidden">Stop</button>
           </div>
         </div>
       </div>
@@ -131,12 +140,12 @@
       <div id="results-card" class="hidden bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mt-6">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 class="font-semibold text-slate-900 text-sm">Extracted Accountune Master</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items formatted for Accountune (Opening Stock = 0)</p>
+            <h3 class="font-semibold text-slate-900 text-sm">Extracted Inventory Master</h3>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items ready for ERP import</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
-            <span>Export Accountune Excel</span>
+            <span>Export Universal Excel</span>
           </button>
         </div>
 
@@ -145,12 +154,12 @@
             <thead class="sticky top-0 bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider">
               <tr>
                 <th class="p-3.5">Item Name</th>
-                <th class="p-3.5">SKU / Code</th>
+                <th class="p-3.5">SKU / Item Code</th>
                 <th class="p-3.5">HSN Code</th>
-                <th class="p-3.5">Sales Price</th>
-                <th class="p-3.5">Tax Rate (%)</th>
-                <th class="p-3.5">Primary Unit</th>
-                <th class="p-3.5">Opening Stock</th>
+                <th class="p-3.5">Sales Price (₹)</th>
+                <th class="p-3.5">Tax Rate</th>
+                <th class="p-3.5">Unit</th>
+                <th class="p-3.5">Stock</th>
               </tr>
             </thead>
             <tbody id="table-body" class="divide-y divide-slate-100 text-slate-700">
@@ -163,7 +172,7 @@
   </div>
 
   <footer class="py-5 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white">
-    CatalogTune Engine — Fast, Compliant Accountune Import Generation
+    CatalogTune — Universal Inventory Import Generation for Retailers & Wholesalers
   </footer>
 
   <script>
@@ -171,6 +180,7 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     const apiKeyInput = document.getElementById('api-key');
+    const stockSetting = document.getElementById('stock-setting');
     const saveKeyBtn = document.getElementById('save-key-btn');
     const keyIndicator = document.getElementById('key-indicator');
     const openSettingsBtn = document.getElementById('open-settings-btn');
@@ -199,9 +209,13 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       const savedKey = localStorage.getItem('catalogtune_openai_key');
+      const savedStock = localStorage.getItem('catalogtune_default_stock');
       if (savedKey) {
         apiKeyInput.value = savedKey;
         keyIndicator.classList.remove('hidden');
+      }
+      if (savedStock) {
+        stockSetting.value = savedStock;
       }
     });
 
@@ -210,14 +224,15 @@
 
     saveKeyBtn.addEventListener('click', () => {
       const key = apiKeyInput.value.trim();
+      localStorage.setItem('catalogtune_default_stock', stockSetting.value);
       if (key) {
         localStorage.setItem('catalogtune_openai_key', key);
         keyIndicator.classList.remove('hidden');
-        settingsModal.classList.add('hidden');
       } else {
         localStorage.removeItem('catalogtune_openai_key');
         keyIndicator.classList.add('hidden');
       }
+      settingsModal.classList.add('hidden');
     });
 
     dropArea.addEventListener('click', () => fileInput.click());
@@ -249,7 +264,6 @@
       }
     }
 
-    // PDF Extraction Engine
     async function processPdfSpatial(file) {
       try {
         const arrayBuffer = await file.arrayBuffer();
@@ -257,8 +271,8 @@
         const totalPages = pdf.numPages;
 
         let currentHSN = "83014090";
+        const defaultStock = parseInt(localStorage.getItem('catalogtune_default_stock') || "0");
 
-        // Skip cover/index (Page 1-3). Start at Page 4.
         for (let pageNum = 4; pageNum <= totalPages; pageNum++) {
           if (isCancelled) {
             progressStatus.textContent = "Stopped by user.";
@@ -347,7 +361,7 @@
                   !t.startsWith("(") && !t.endsWith(")")
                 );
 
-                const cleanTitle = nameParts.length ? nameParts.join(' ').replace(/\s+/g, ' ').trim() : "Godrej Product " + sku;
+                const cleanTitle = nameParts.length ? nameParts.join(' ').replace(/\s+/g, ' ').trim() : "Product " + sku;
 
                 if (cleanTitle.length > 2) {
                   allExtractedItems.push({
@@ -357,7 +371,7 @@
                     "Sales Price": cleanPrice,
                     "Tax Rate (%)": "18%",
                     "Primary Unit": "Pcs",
-                    "Opening Stock": 0
+                    "Opening Stock": defaultStock
                   });
                 }
               }
@@ -369,13 +383,12 @@
         }
 
       } catch (err) {
-        showError("PDF Extraction Exception: " + err.message);
+        showError("PDF Extraction Error: " + err.message);
       }
 
       finishProcessing();
     }
 
-    // Image File Engine
     async function processImageFile(file) {
       pagesStat.textContent = `1/1`;
       updateProgress(1, 1, "Reading Image File...");
@@ -400,6 +413,7 @@
     }
 
     async function extractVisionOpenAI(base64Image, apiKey) {
+      const defaultStock = parseInt(localStorage.getItem('catalogtune_default_stock') || "0");
       const prompt = `
       Extract all product line items from this price list image.
       Return STRICTLY a JSON object with key "items" containing an array of objects with keys:
@@ -445,7 +459,7 @@
               "Sales Price": parseFloat(cleanPrice) || 0,
               "Tax Rate (%)": "18%",
               "Primary Unit": item.unit || 'Pcs',
-              "Opening Stock": 0
+              "Opening Stock": defaultStock
             });
           }
         });
@@ -458,6 +472,7 @@
     }
 
     function parseOcrText(text) {
+      const defaultStock = parseInt(localStorage.getItem('catalogtune_default_stock') || "0");
       const lines = text.split('\n').filter(l => l.trim().length > 5);
 
       lines.forEach((line, index) => {
@@ -476,7 +491,7 @@
               "Sales Price": price,
               "Tax Rate (%)": "18%",
               "Primary Unit": "Pcs",
-              "Opening Stock": 0
+              "Opening Stock": defaultStock
             });
           }
         }
@@ -540,8 +555,8 @@
       if (!exportData.length) return;
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Accountune_Master");
-      XLSX.writeFile(workbook, "Accountune_Bulk_Import_Master.xlsx");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory_Master");
+      XLSX.writeFile(workbook, "Universal_Inventory_Master.xlsx");
     });
   </script>
 </body>
