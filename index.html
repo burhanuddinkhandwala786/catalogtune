@@ -1,1 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CatalogTune - Accountune Converter</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <div class="max-w-5xl mx-auto px-4 py-8">
+    <header class="mb-8 text-center">
+      <h1 class="text-3xl font-bold text-slate-900 mb-2">CatalogTune</h1>
+      <p class="text-slate-600">Instantly convert catalog & invoice images into Accountune Excel import files (Stock = 0 enforced)</p>
+    </header>
 
+    <!-- Upload Card -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mb-8">
+      <div id="drop-area" class="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition">
+        <svg class="mx-auto h-12 w-12 text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+        <p class="text-slate-700 font-medium mb-1">Click to upload or drag & drop invoice image</p>
+        <p class="text-slate-400 text-sm">PNG, JPG, JPEG supported</p>
+        <input type="file" id="file-input" accept="image/*" class="hidden">
+      </div>
+
+      <div id="loading" class="hidden mt-6 text-center">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+        <p class="text-slate-600 mt-2 font-medium">Extracting items & formatting for Accountune...</p>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results-card" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold text-slate-800">Extracted Items (<span id="count">0</span>)</h2>
+        <button id="download-btn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium shadow transition">
+          Download Accountune Excel
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="bg-slate-100 border-b border-slate-200">
+              <th class="p-3">Item Name</th>
+              <th class="p-3">Item Code / SKU</th>
+              <th class="p-3">HSN Code</th>
+              <th class="p-3">Sales Price (₹)</th>
+              <th class="p-3">Tax Rate</th>
+              <th class="p-3">Unit</th>
+              <th class="p-3">Opening Stock</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('file-input');
+    const dropArea = document.getElementById('drop-area');
+    const loading = document.getElementById('loading');
+    const resultsCard = document.getElementById('results-card');
+    const tableBody = document.getElementById('table-body');
+    const countSpan = document.getElementById('count');
+    const downloadBtn = document.getElementById('download-btn');
+
+    let currentItems = [];
+
+    dropArea.addEventListener('click', () => fileInput.click());
+    dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('border-blue-500'); });
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('border-blue-500'));
+    dropArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropArea.classList.remove('border-blue-500');
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result.split(',')[1];
+        loading.classList.remove('hidden');
+        resultsCard.classList.add('hidden');
+
+        try {
+          const res = await fetch('/.netlify/functions/parse-invoice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: base64 })
+          });
+
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+
+          currentItems = data.items;
+          renderTable(currentItems);
+
+        } catch (err) {
+          alert('Error: ' + err.message);
+        } finally {
+          loading.classList.add('hidden');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function renderTable(items) {
+      countSpan.textContent = items.length;
+      tableBody.innerHTML = items.map(item => `
+        <tr class="border-b border-slate-100 hover:bg-slate-50">
+          <td class="p-3 font-medium">${item['Item Name']}</td>
+          <td class="p-3">${item['Item Code / SKU']}</td>
+          <td class="p-3">${item['HSN Code']}</td>
+          <td class="p-3">${item['Sales Price']}</td>
+          <td class="p-3">${item['Tax Rate (%)']}</td>
+          <td class="p-3">${item['Primary Unit']}</td>
+          <td class="p-3 font-bold text-green-600">${item['Opening Stock']}</td>
+        </tr>
+      `).join('');
+      resultsCard.classList.remove('hidden');
+    }
+
+    downloadBtn.addEventListener('click', () => {
+      const worksheet = XLSX.utils.json_to_sheet(currentItems);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Accountune_Items");
+      XLSX.writeFile(workbook, "Accountune_Bulk_Import.xlsx");
+    });
+  </script>
+</body>
+</html>
