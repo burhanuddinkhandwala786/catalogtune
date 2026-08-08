@@ -44,7 +44,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Accountune Unique Name Engine</span>
+            <span>Category-Sorted Accountune Format</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="Settings">
@@ -106,7 +106,7 @@
             <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
           </div>
           <h2 class="text-base font-semibold text-slate-900 mb-1">Upload Catalog PDF or Image</h2>
-          <p class="text-xs text-slate-500 max-w-sm mb-6">Drop multi-page PDF catalogs or image price sheets to generate an Accountune CSV file</p>
+          <p class="text-xs text-slate-500 max-w-sm mb-6">Drop multi-page PDF catalogs or image price sheets to generate a category-sorted Accountune CSV file</p>
           
           <button class="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs px-5 py-2.5 rounded-xl transition shadow-sm">
             Select Document
@@ -119,7 +119,7 @@
           <div class="flex justify-between items-center text-xs font-medium text-slate-600">
             <span id="progress-status" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
-              Extracting Items...
+              Extracting Items & Categorizing...
             </span>
             <span id="progress-percent" class="font-bold text-slate-900">0%</span>
           </div>
@@ -140,12 +140,12 @@
       <div id="results-card" class="hidden bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mt-6">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h3 class="font-semibold text-slate-900 text-sm">Accountune Inventory Import Preview</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> unique items ready for Accountune</p>
+            <h3 class="font-semibold text-slate-900 text-sm">Category-Sorted Accountune Master Preview</h3>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> unique items sorted category-wise for Accountune</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
-            <span>Export Accountune CSV</span>
+            <span>Export Category-Sorted CSV</span>
           </button>
         </div>
 
@@ -153,7 +153,7 @@
           <table class="w-full text-left border-collapse text-xs">
             <thead class="sticky top-0 bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider">
               <tr>
-                <th class="p-3.5">Type</th>
+                <th class="p-3.5">Category</th>
                 <th class="p-3.5">Unique Item Name</th>
                 <th class="p-3.5">Item Code</th>
                 <th class="p-3.5">HSN Code</th>
@@ -173,7 +173,7 @@
   </div>
 
   <footer class="py-5 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white">
-    CatalogTune — Exact 27-Column CSV Format for Accountune Import
+    CatalogTune — Category-Sorted 27-Column CSV Format for Accountune Import
   </footer>
 
   <script>
@@ -247,6 +247,62 @@
 
     function hideError() {
       errorBox.classList.add('hidden');
+    }
+
+    // Category Classification Classifier
+    function detectCategory(name, pageHeader, hsn) {
+      const combined = (name + " " + pageHeader).toLowerCase();
+
+      if (combined.includes("digital") || combined.includes("advantis") || combined.includes("neo connect") || combined.includes("neo prime") || combined.includes("neo advantage")) {
+        return "Digital Locks";
+      }
+      if (combined.includes("mortise") || combined.includes("neh") || combined.includes("gloria") || combined.includes("europrofile mortise")) {
+        return "Mortise Locks";
+      }
+      if (combined.includes("rim") || combined.includes("pentabolt") || combined.includes("centaur") || combined.includes("tribolt") || combined.includes("twinbolt") || combined.includes("vertibolt") || combined.includes("night latch") || combined.includes("khatakhat")) {
+        return "Rim Locks";
+      }
+      if (combined.includes("cylindrical") || combined.includes("5ptc")) {
+        return "Cylindrical Locks";
+      }
+      if (combined.includes("padlock") || combined.includes("navtal") || combined.includes("nav-tal") || combined.includes("sherlock") || combined.includes("duralock") || combined.includes("herculoc") || combined.includes("kaditala")) {
+        return "Padlocks";
+      }
+      if (combined.includes("furniture lock") || combined.includes("curvo") || combined.includes("nuvo") || combined.includes("supernova") || combined.includes("cam lock") || combined.includes("almirah")) {
+        return "Furniture Locks";
+      }
+      if (combined.includes("handle") || combined.includes("cameo") || combined.includes("ugo") || combined.includes("twist") || combined.includes("ecstacy") || combined.includes("orso") || combined.includes("hdh") || combined.includes("arsa")) {
+        return "Home Décor Handles";
+      }
+      if (combined.includes("closer") || combined.includes("cerus") || combined.includes("hercules") || combined.includes("door control")) {
+        return "Door Controls";
+      }
+      if (combined.includes("hinge") || combined.includes("aldrop") || combined.includes("door stopper") || combined.includes("tower bolt")) {
+        return "Door Fittings";
+      }
+      if (combined.includes("hikido") || combined.includes("wardrobe")) {
+        return "Wardrobe Fittings";
+      }
+      if (combined.includes("neulift") || combined.includes("bed")) {
+        return "Bed Fittings";
+      }
+      if (combined.includes("drawer channel") || combined.includes("minifix") || combined.includes("cabinet hinge")) {
+        return "Furniture Fittings";
+      }
+      if (combined.includes("profile") || combined.includes("slimline") || combined.includes("gola")) {
+        return "Aluminium Profiles";
+      }
+      if (combined.includes("skido") || combined.includes("pantry") || combined.includes("pullout") || combined.includes("basket") || combined.includes("kitchen")) {
+        return "Kitchen Fittings";
+      }
+
+      // HSN Fallback Rule
+      if (hsn === "83011000") return "Padlocks";
+      if (hsn === "83013000") return "Furniture Locks";
+      if (hsn === "83024110") return "Door Fittings";
+      if (hsn === "83024200") return "Kitchen Fittings";
+
+      return "Hardware & Locks";
     }
 
     async function startProcessing(file) {
@@ -354,7 +410,6 @@
               const cleanPrice = parseFloat(mrpRaw.replace(/[^\d.]/g, ''));
 
               if (cleanPrice > 10 && cleanPrice !== 2026 && cleanPrice !== parseFloat(sku)) {
-                // Filter out UNSPSC and unit strings
                 const nameParts = texts.filter(t => 
                   t !== mrpRaw && 
                   !/\d{8}SD\d{5}/.test(t) && 
@@ -364,7 +419,7 @@
 
                 let cleanTitle = nameParts.length ? nameParts.join(' ').replace(/\s+/g, ' ').trim() : "Item " + sku;
 
-                // GUARANTEE UNIQUNESS FOR ACCOUNTUNE: Append SKU code to Item Name if not already present
+                // GUARANTEE UNIQUNESS FOR ACCOUNTUNE: Append SKU code
                 if (sku !== "N/A" && !cleanTitle.includes(`#${sku}`) && !cleanTitle.includes(sku)) {
                   cleanTitle += ` - #${sku}`;
                 } else if (sku !== "N/A" && cleanTitle.includes(sku) && !cleanTitle.includes(`#${sku}`)) {
@@ -372,7 +427,10 @@
                 }
 
                 if (cleanTitle.length > 2) {
+                  const category = detectCategory(cleanTitle, fullPageText, currentHSN);
+
                   allExtractedItems.push(buildAccountuneRow({
+                    category: category,
                     name: cleanTitle,
                     sku: sku,
                     hsn: currentHSN,
@@ -463,8 +521,11 @@
             name += ` - #${sku}`;
           }
 
+          const category = detectCategory(name, "", hsn);
+
           if (cleanPrice && cleanPrice !== '0') {
             allExtractedItems.push(buildAccountuneRow({
+              category: category,
               name: name,
               sku: sku,
               hsn: hsn || '83014090',
@@ -495,7 +556,10 @@
           let name = line.replace(/[0-9]/g, '').replace(/[\/|-]/g, ' ').trim();
           if (name.length > 3 && price > 10) {
             let uniqueName = `${name} - #${itemCode}`;
+            const category = detectCategory(uniqueName, "", "83014090");
+
             allExtractedItems.push(buildAccountuneRow({
+              category: category,
               name: uniqueName,
               sku: itemCode,
               hsn: "83014090",
@@ -511,7 +575,7 @@
     }
 
     // Builder for Exact 27-Column Accountune Specification
-    function buildAccountuneRow({ name, sku, hsn, price, stock }) {
+    function buildAccountuneRow({ category, name, sku, hsn, price, stock }) {
       return {
         "Type": "Goods",
         "Name": name,
@@ -521,7 +585,7 @@
         "SAC Code": "",
         "GST Rate": 18,
         "CESS Rate": 0,
-        "Category": "Hardware",
+        "Category": category,
         "Secondary Unit Applicable": "No",
         "Secondary Unit": "",
         "Ratio": "",
@@ -550,8 +614,7 @@
       progressBar.style.width = `${percentage}%`;
     }
 
-    function renderLiveResults() {
-      // Deduplicate items strictly by Unique Item Name
+    function getSortedUniqueItems() {
       const uniqueMap = new Map();
       allExtractedItems.forEach(item => {
         if (!uniqueMap.has(item["Name"])) {
@@ -559,12 +622,26 @@
         }
       });
 
-      const displayItems = Array.from(uniqueMap.values());
+      const items = Array.from(uniqueMap.values());
+
+      // Category-wise sorting, then Name sorting
+      items.sort((a, b) => {
+        if (a["Category"] !== b["Category"]) {
+          return a["Category"].localeCompare(b["Category"]);
+        }
+        return a["Name"].localeCompare(b["Name"]);
+      });
+
+      return items;
+    }
+
+    function renderLiveResults() {
+      const displayItems = getSortedUniqueItems();
 
       countSpan.textContent = displayItems.length;
       tableBody.innerHTML = displayItems.map(item => `
         <tr class="hover:bg-slate-50 transition">
-          <td class="p-3.5 font-medium text-slate-900">${item['Type']}</td>
+          <td class="p-3.5 font-medium text-indigo-600 bg-indigo-50/30">${item['Category']}</td>
           <td class="p-3.5 font-medium text-slate-900">${item['Name']}</td>
           <td class="p-3.5 font-mono text-slate-500">${item['Item Code']}</td>
           <td class="p-3.5 font-mono text-slate-500">${item['HSN Code']}</td>
@@ -586,17 +663,11 @@
     }
 
     downloadBtn.addEventListener('click', () => {
-      const uniqueMap = new Map();
-      allExtractedItems.forEach(item => {
-        if (!uniqueMap.has(item["Name"])) {
-          uniqueMap.set(item["Name"], item);
-        }
-      });
-      const exportData = Array.from(uniqueMap.values());
+      const exportData = getSortedUniqueItems();
 
       if (!exportData.length) return;
 
-      // Export strictly formatted CSV for Accountune Import
+      // Export strictly formatted Category-Sorted CSV for Accountune Import
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const csvOutput = XLSX.utils.sheet_to_csv(worksheet);
 
@@ -604,7 +675,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', 'Accountune_Bulk_Import_Master.csv');
+      link.setAttribute('download', 'Accountune_Category_Sorted_Master.csv');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
