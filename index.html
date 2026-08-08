@@ -44,7 +44,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Smart Business Category Classifier Active</span>
+            <span>Accurate Measurement Unit Engine Active</span>
           </div>
 
           <button id="open-settings-btn" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition relative" title="Settings">
@@ -119,7 +119,7 @@
           <div class="flex justify-between items-center text-xs font-medium text-slate-600">
             <span id="progress-status" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
-              Extracting Items & Categorizing for Accountune...
+              Extracting Items & Cleaning Measurement Units...
             </span>
             <span id="progress-percent" class="font-bold text-slate-900">0%</span>
           </div>
@@ -141,7 +141,7 @@
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 class="font-semibold text-slate-900 text-sm">Accountune Inventory Import Preview</h3>
-            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items classified into retail business categories</p>
+            <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> 100% unique items ready for Accountune import</p>
           </div>
           <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
             <i data-lucide="download" class="w-4 h-4"></i>
@@ -154,7 +154,7 @@
             <thead class="sticky top-0 bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider">
               <tr>
                 <th class="p-3.5">Category</th>
-                <th class="p-3.5">100% Unique Item Name</th>
+                <th class="p-3.5">Clean Item Name</th>
                 <th class="p-3.5">Item Code</th>
                 <th class="p-3.5">HSN Code</th>
                 <th class="p-3.5">Price (₹)</th>
@@ -249,7 +249,7 @@
       errorBox.classList.add('hidden');
     }
 
-    // Human Business Owner Category Classification Engine
+    // Category Classification Engine
     function detectCategory(name, pageHeader, hsn) {
       const combined = (name + " " + pageHeader).toLowerCase();
 
@@ -304,22 +304,25 @@
       return "Hardware & Locks";
     }
 
-    // AUTOMATIC ACCOUNTUNE PRIMARY UNIT RESOLVER
+    // AUTOMATIC ACCURATE ACCOUNTUNE PRIMARY UNIT RESOLVER
     function detectSmartUnit(name) {
       const s = name.toLowerCase();
 
+      // Long profiles / Gola extrusions are sold by Meter
       if (
         s.includes("profile") || 
-        s.includes("track") || 
-        s.includes("gola") || 
-        s.includes("runner") || 
-        s.includes("channel") || 
+        s.includes("gola profile") || 
+        s.includes("slimline profile") || 
         /\b(mtr|meters?)\b/.test(s)
       ) {
         return "MTR";
       }
 
+      // Drawer channels, hinge sets, combipacks, handle sets, sliding wardrobe kits are sold as SET/PAIR
       if (
+        s.includes("drawer channel") || 
+        s.includes("channel") || 
+        s.includes("slide") || 
         s.includes("set") || 
         s.includes("combipack") || 
         s.includes("kit") || 
@@ -333,6 +336,7 @@
         return "SET";
       }
 
+      // Screws, dowels, brackets, connectors
       if (
         s.includes("dowel") || 
         s.includes("screw") || 
@@ -457,22 +461,36 @@
               const cleanPrice = parseFloat(mrpRaw.replace(/[^\d.]/g, ''));
 
               if (cleanPrice > 10 && cleanPrice !== 2026 && cleanPrice !== parseFloat(sku)) {
-                // Filter out UNSPSC and MRP price from the official item name
-                const nameParts = texts.filter(t => 
+                // Filter out UNSPSC, raw price, and table header strings
+                const initialParts = texts.filter(t => 
                   t !== mrpRaw && 
                   !/\d{8}SD\d{5}/.test(t) && 
-                  !["(mm)", "Pcs", "Set"].includes(t)
+                  !["(mm)", "(cm)", "(inch)", "Size", "Pcs", "Set"].includes(t)
                 );
 
+                // Filter out trailing raw Size column numbers (e.g. 250, 25, 10) if measurement is already in product title
+                const cleanedParts = [];
+                for (let i = 0; i < initialParts.length; i++) {
+                  const tok = initialParts[i];
+                  if (/^\d+$/.test(tok)) {
+                    const prevStr = cleanedParts.join(' ').toLowerCase();
+                    // If measurement like "250 mm" or "250mm" is already present, omit raw column numbers
+                    if (prevStr.includes("mm") || prevStr.includes("cm") || prevStr.includes("inch")) {
+                      continue;
+                    }
+                  }
+                  cleanedParts.push(tok);
+                }
+
                 // Strip trailing Std Pkg quantity numbers if present
-                if (nameParts.length && /^\d+$/.test(nameParts[nameParts.length - 1])) {
-                  const lastNum = parseInt(nameParts[nameParts.length - 1]);
+                if (cleanedParts.length && /^\d+$/.test(cleanedParts[cleanedParts.length - 1])) {
+                  const lastNum = parseInt(cleanedParts[cleanedParts.length - 1]);
                   if ([1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 16, 20, 24, 25, 30, 40, 50, 60].includes(lastNum)) {
-                    nameParts.pop();
+                    cleanedParts.pop();
                   }
                 }
 
-                let cleanTitle = nameParts.length ? nameParts.join(' ').replace(/\s+/g, ' ').trim() : "Item " + sku;
+                let cleanTitle = cleanedParts.length ? cleanedParts.join(' ').replace(/\s+/g, ' ').trim() : "Item " + sku;
 
                 // GUARANTEE 100% MATCH & UNIQUENESS FOR ACCOUNTUNE INVOICE MATCHING
                 if (sku !== "N/A" && !cleanTitle.includes(`#${sku}`) && !cleanTitle.includes(sku)) {
