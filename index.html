@@ -362,9 +362,9 @@
     const OCR_NOISE_PATTERNS = [
       /discount/i, /guarantee/i, /crack/i, /bubble/i, /no return/i, /exchange/i,
       /responsible/i, /transportation/i, /availability/i, /manufactur/i, /defect/i,
-      /liabilit/i, /restrict/i, /replacement/i, /payment/i, /invoice/i, /^note/i,
+      /liabilit/i, /restrict/i, /replacement/i, /payment/i, /invoice/i,
       /price list/i, /particular/i, /dealer/i, /rate per/i, /^s\.?no\.?$/i,
-      /d'?\s*story/i, /artistic laminates/i, /^\d+$/,
+      /d'?\s*story/i, /artistic laminates/i,
       /\d{1,2}\s*\/\s*\d{1,2}\s*\/\s*\d{2,4}/,
       /^from\b/i, /^effective/i, /^w\.?e\.?f\.?\b/i,
     ];
@@ -375,7 +375,8 @@
       return OCR_NOISE_PATTERNS.some(re => re.test(s));
     }
 
-    const PRICE_TAIL_RE = /([\d]{2,6})\s*\/?-?\s*$/;
+    // Flexible price regex matching formats like "790/-", "1485 / -", "2700.00", or "790"
+    const PRICE_TAIL_RE = /([\d]{3,6})\s*(?:\/|-|\.00)*\s*$/;
 
     function parseOcrText(text, defaultUnit) {
       const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
@@ -385,16 +386,19 @@
 
       for (const line of rawLines) {
         if (isNoiseLine(line)) continue;
+
+        // Detect section/header bars (e.g. "AMULYA 800 0.8MM", "AMULYA 1MM", "IMPERIAL 1.25MM")
+        if (/(AMULYA|IMPERIAL|PVC|LINEAR|SYNCHRONIZE|SERIES)/i.test(line) && !line.includes('/-') && line.length < 65) {
+          runningCategory = line.replace(/[:\-]+$/, '').trim();
+          pendingName = '';
+          continue;
+        }
+
         const priceMatch = line.match(PRICE_TAIL_RE);
         const textBeforePrice = priceMatch ? line.slice(0, priceMatch.index).trim() : line;
 
         if (!priceMatch) {
-          if (/^[A-Z0-9 ,.\/()\-]+$/.test(line) && line.length < 60 && line === line.toUpperCase()) {
-            runningCategory = line.replace(/[:\-]+$/, '').trim();
-            pendingName = '';
-          } else {
-            pendingName = (pendingName + ' ' + line).trim();
-          }
+          pendingName = (pendingName + ' ' + line).trim();
           continue;
         }
 
@@ -404,6 +408,7 @@
         let name = (pendingName + ' ' + textBeforePrice).replace(/\s+/g, ' ').trim();
         name = name.replace(/^\d+[.)]?\s+/, '');
         pendingName = '';
+        
         if (!name) name = runningCategory;
         const fullName = runningCategory && !name.toUpperCase().includes(runningCategory.toUpperCase())
           ? `${runningCategory} ${name}`.trim() : name;
@@ -657,8 +662,7 @@
         });
         const visionOk = await extractVisionOpenAI(base64Image, apiKey, brand);
         if (!visionOk) {
-          showError('Vision request failed (network/API issue) — falling back to on-page OCR instead.');
-          updateProgress(0, 100, 'Vision failed — retrying with on-page OCR...');
+          updateProgress(0, 100, 'Falling back to on-page OCR...');
           await runTesseractOcr(file, brand);
         }
       } else {
@@ -686,7 +690,7 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
             temperature: 0,
           }),
         });
-        if (!response.ok) { showError('OpenAI request failed (' + response.status + ')'); return false; }
+        if (!response.ok) { return false; }
         const data = await response.json();
         const content = JSON.parse(data.choices[0].message.content);
         (content.items || []).forEach(it => {
@@ -700,7 +704,6 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
         renderResults();
         return true;
       } catch (e) { 
-        showError('Vision extract error: ' + e.message); 
         return false;
       }
     }
