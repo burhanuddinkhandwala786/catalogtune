@@ -358,7 +358,6 @@
 
     // =========================================================================
     // IMAGE / PHOTO OCR PARSER
-    // Fixed for rate-cards with multi-line text blocks + trailing prices
     // =========================================================================
     const OCR_NOISE_PATTERNS = [
       /discount/i, /guarantee/i, /crack/i, /bubble/i, /no return/i, /exchange/i,
@@ -379,25 +378,26 @@
     function parseOcrText(text, defaultUnit) {
       const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
       const rows = [];
-      let pendingName = '';
+      let pendingAccumulator = '';
       let runningCategory = '';
 
       for (let i = 0; i < rawLines.length; i++) {
         const line = rawLines[i];
         if (isNoiseLine(line)) continue;
 
-        // Detect section headers (e.g., AMULYA 800 0.8MM, AMULYA 1MM, IMPERIAL)
+        // Detect section/header bars (e.g. "AMULYA 800 0.8MM", "AMULYA 1MM", "IMPERIAL 1.25MM")
         if (/(AMULYA|IMPERIAL|PVC|LINEAR|SYNCHRONIZE)/i.test(line) && !line.includes('/-') && !/\b\d{3,5}\b/.test(line)) {
           runningCategory = line.replace(/[:\-]+$/, '').trim();
-          pendingName = '';
+          pendingAccumulator = '';
           continue;
         }
 
-        // Match any price pattern at the end of a line (e.g., 790/-, 1485/-, 2700, 2700/-)
+        // Match price tail at the end of the line
         const priceMatch = line.match(/(\d{3,5})\s*(?:\/-|\/|-)?\s*$/);
-        
+
         if (!priceMatch) {
-          pendingName = (pendingName + ' ' + line).trim();
+          // Accumulate multi-line descriptions instead of resetting
+          pendingAccumulator = (pendingAccumulator + ' ' + line).trim();
           continue;
         }
 
@@ -405,15 +405,13 @@
         if (price < 50 || price > 200000) continue;
 
         let textBefore = line.slice(0, priceMatch.index).trim();
-        
-        // Accumulate multi-line descriptions
-        let name = (pendingName + ' ' + textBefore).replace(/\s+/g, ' ').trim();
-        name = name.replace(/^\d+[.)]?\s+/, '').replace(/[\/|-]+$/, '').trim();
-        pendingName = '';
+        let fullDescription = (pendingAccumulator + ' ' + textBefore).replace(/\s+/g, ' ').trim();
+        fullDescription = fullDescription.replace(/^\d+[.)]?\s+/, '').replace(/[\/|-]+$/, '').trim();
+        pendingAccumulator = '';
 
-        if (!name) name = runningCategory;
-        const fullName = runningCategory && !name.toUpperCase().includes(runningCategory.toUpperCase())
-          ? `${runningCategory} ${name}`.trim() : name;
+        if (!fullDescription) fullDescription = runningCategory;
+        const fullName = runningCategory && !fullDescription.toUpperCase().includes(runningCategory.toUpperCase())
+          ? `${runningCategory} ${fullDescription}`.trim() : fullDescription;
 
         if (fullName) {
           rows.push({
@@ -591,7 +589,7 @@
       hideError();
       const brand = brandNameInput.value.trim();
       if (!brand) {
-        showError('Enter the Company / Brand Name before uploading — every item name and SKU is built from it, and it\'s what lets a later purchase-bill upload match existing items instead of creating duplicates.');
+        showError('Enter the Company / Brand Name before uploading — every item name and SKU is built from it.');
         fileInput.value = '';
         return;
       }
@@ -716,7 +714,6 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
       }
     }
 
-    // ---- Editable results table ----
     function cellInput(rowIdx, field, value, type = 'text') {
       return `<input class="cell-input" type="${type}" value="${(value ?? '').toString().replace(/"/g, '&quot;')}"
         data-row="${rowIdx}" data-field="${field}" />`;
@@ -735,7 +732,7 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
           <td class="p-1.5">${cellInput(i, 'purchasePrice', item.purchasePrice, 'number')}</td>
           <td class="p-1.5">${cellInput(i, 'gst', item.gst, 'number')}</td>
           <td class="p-1.5 text-center">
-            <span class="inline-flex items-center gap-1 text-slate-400 font-mono text-[11px]" title="Locked to 0 — order-based inventory, not held in stock">
+            <span class="inline-flex items-center gap-1 text-slate-400 font-mono text-[11px]">
               0 <i data-lucide="lock" class="w-3 h-3"></i>
             </span>
           </td>
@@ -787,7 +784,6 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
       progressBar.style.width = `${percentage}%`;
     }
 
-    // ---- Export: exact Accountune 27-column CSV ----
     downloadBtn.addEventListener('click', () => {
       if (!items.length) return;
       const gstDefault = localStorage.getItem('catalogtune_default_gst') || '';
