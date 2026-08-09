@@ -200,11 +200,7 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     // =========================================================================
-    // ACCOUNTUNE SCHEMA — taken verbatim from a real exported sample template
-    // (27 columns, exact header text/order). CatalogTune only ever fills in
-    // columns it can actually derive from the source document; every other
-    // column is exported blank rather than guessed, so bad data never sneaks
-    // into fields like GST Rate or Ratio.
+    // ACCOUNTUNE SCHEMA
     // =========================================================================
     const ACCOUNTUNE_COLUMNS = [
       'Type', 'Name', 'Description', 'Primary Unit', 'HSN Code', 'SAC Code',
@@ -233,19 +229,13 @@
       rec['Default Purchase Price Per Primary Unit'] = row.purchasePrice || '';
       rec['Default Unit for Purchase'] = 'primary';
       rec['Default Unit for Sales'] = 'primary';
-      rec['Opening Quantity'] = 0; // hard-locked, ignores whatever is on the row
+      rec['Opening Quantity'] = 0;
       rec['Opening Rate'] = row.purchasePrice || row.sellingPrice || '';
       return rec;
     }
 
     // =========================================================================
     // PDF SPATIAL PARSER
-    // Validated against a real 144-page multi-column price list: 1771/1771
-    // items extracted correctly. Every "Product Name ... MRP" table on a page
-    // gets its own column boundaries computed from its own header labels.
-    // Rows anchor on the Product Code column (always a bare number, always at
-    // the start of a row), which stays reliable even when a product name
-    // wraps across 2-3 lines and pushes the price further down.
     // =========================================================================
     function fontSize(item) { const tx = item.transform; return Math.hypot(tx[2], tx[3]); }
 
@@ -368,17 +358,6 @@
 
     // =========================================================================
     // IMAGE / PHOTO OCR PARSER
-    // For simple photographed rate cards (not multi-column SKU catalogs) —
-    // e.g. "PARTICULARS | RATE" style sheets. OCR line order is far less
-    // reliable than PDF text positions, so this is intentionally simpler and
-    // leans on the editable table for correction rather than promising
-    // perfect structure recovery.
-    //
-    // Logic: a line ending in a price-like token (e.g. "1050/-", "790/-") is
-    // a data row. A short line with NO trailing price is treated as a running
-    // category/section header and prefixed onto the next data row(s), which
-    // matches how these rate cards are actually laid out (bold section bars
-    // above a group of items).
     // =========================================================================
     const OCR_NOISE_PATTERNS = [
       /discount/i, /guarantee/i, /crack/i, /bubble/i, /no return/i, /exchange/i,
@@ -386,8 +365,8 @@
       /liabilit/i, /restrict/i, /replacement/i, /payment/i, /invoice/i, /^note/i,
       /price list/i, /particular/i, /dealer/i, /rate per/i, /^s\.?no\.?$/i,
       /d'?\s*story/i, /artistic laminates/i, /^\d+$/,
-      /\d{1,2}\s*\/\s*\d{1,2}\s*\/\s*\d{2,4}/,      // dates like 14/07/2026
-      /^from\b/i, /^effective/i, /^w\.?e\.?f\.?\b/i, // "FROM ...", "W.E.F. ..."
+      /\d{1,2}\s*\/\s*\d{1,2}\s*\/\s*\d{2,4}/,
+      /^from\b/i, /^effective/i, /^w\.?e\.?f\.?\b/i,
     ];
 
     function isNoiseLine(line) {
@@ -410,8 +389,6 @@
         const textBeforePrice = priceMatch ? line.slice(0, priceMatch.index).trim() : line;
 
         if (!priceMatch) {
-          // No price on this line: either a category header or a
-          // continuation of a wrapped particulars description.
           if (/^[A-Z0-9 ,.\/()\-]+$/.test(line) && line.length < 60 && line === line.toUpperCase()) {
             runningCategory = line.replace(/[:\-]+$/, '').trim();
             pendingName = '';
@@ -422,10 +399,10 @@
         }
 
         const price = parseInt(priceMatch[1], 10);
-        if (!price || price < 5) continue; // guard against stray small numbers (e.g. list numbering)
+        if (!price || price < 5) continue;
 
         let name = (pendingName + ' ' + textBeforePrice).replace(/\s+/g, ' ').trim();
-        name = name.replace(/^\d+[.)]?\s+/, ''); // strip a leading "1 " / "1." row-number artifact
+        name = name.replace(/^\d+[.)]?\s+/, '');
         pendingName = '';
         if (!name) name = runningCategory;
         const fullName = runningCategory && !name.toUpperCase().includes(runningCategory.toUpperCase())
@@ -435,6 +412,46 @@
         rows.push({ name: fullName.replace(/\s+/g, ' ').trim(), category: runningCategory || 'Uncategorized', price, unit: defaultUnit });
       }
       return rows;
+    }
+
+    // Dynamic Primary Unit Resolver
+    function detectSmartUnit(name) {
+      const s = (name || '').toLowerCase();
+
+      if (
+        s.includes("drawer channel") || 
+        s.includes("channel") || 
+        s.includes("slide") || 
+        s.includes("set") || 
+        s.includes("combipack") || 
+        s.includes("kit") || 
+        s.includes("pair") || 
+        s.includes("hinge") || 
+        s.includes("system") || 
+        s.includes("latch with handle") || 
+        s.includes("pack of 2") || 
+        s.includes("pack of 4")
+      ) {
+        return "SET";
+      }
+
+      if (
+        s.includes("dowel") || 
+        s.includes("screw") || 
+        s.includes("connector") || 
+        s.includes("cam housing") || 
+        s.includes("bracket") || 
+        s.includes("end cap") || 
+        /\b(box|boxes)\b/.test(s)
+      ) {
+        return "BOX";
+      }
+
+      if (s.includes("bottle") || s.includes("liquid") || s.includes("cleaner") || /\b(btl|bottles?)\b/.test(s)) {
+        return "BTL";
+      }
+
+      return "PCS";
     }
 
     // =========================================================================
@@ -467,12 +484,12 @@
     const priceModeGroup = document.getElementById('price-mode-group');
     const brandNameInput = document.getElementById('brand-name');
 
-    let items = []; // { category, name, code, hsn, unit, sellingPrice, purchasePrice, stock, page }
-    let itemKeys = new Set(); // dedup keys already inserted, so nothing is ever added twice
+    let items = [];
+    let itemKeys = new Set();
     let duplicatesSkipped = 0;
     let manualRowCounter = 0;
     let isCancelled = false;
-    let priceMode = 'selling'; // 'selling' | 'purchase' | 'none'
+    let priceMode = 'selling';
 
     function dedupKey(code, name) {
       const c = (code || '').toString().trim().toLowerCase();
@@ -480,13 +497,6 @@
       return 'name:' + name.toString().trim().toLowerCase().replace(/\s+/g, ' ');
     }
 
-    // Company-named SKU/name generation. The whole point: when you later
-    // upload a purchase bill from the SAME supplier, the item name/code
-    // already in Accountune should read the same way the bill does, so
-    // Accountune matches the existing item instead of silently creating a
-    // new "ghost" one. Deterministic (same input -> same code every time),
-    // so re-processing the same file twice never mints a second code for
-    // the same product.
     function brandShortCode(brand) {
       return brand.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0, 12) || 'BRAND';
     }
@@ -498,24 +508,8 @@
     function applyBrand(brand, rawName, rawCode) {
       const brandTrim = brand.trim();
       const shortCode = brandShortCode(brandTrim);
-      // Don't double-prefix if the source text already starts with the brand
-      // (common for PDF catalogs whose own product names already say
-      // "Godrej ...' on every line, or rate cards whose particulars already
-      // say "DAARVI ...").
       const alreadyPrefixed = rawName.trim().toUpperCase().startsWith(brandTrim.toUpperCase());
       const name = alreadyPrefixed ? rawName.trim() : `${brandTrim} - ${rawName.trim()}`;
-      // IMPORTANT: when the source document already has a real manufacturer
-      // code, keep it EXACTLY as-is — no brand prefix. That raw code is
-      // what's literally printed on the supplier's purchase bill, so it has
-      // to match verbatim for Accountune to recognise the existing item
-      // instead of creating a new one. Prefixing it (e.g. "GODREJ-5105"
-      // when the bill just says "5105") would break that match and cause
-      // exactly the ghost-item problem this is meant to prevent.
-      //
-      // Only when there's NO manufacturer code at all (simple rate cards
-      // like a laminate price list) do we invent one, brand-prefixed, purely
-      // as an internal reference so two different suppliers' generically-
-      // named items ("SF", "HGF"...) don't collide with each other.
       const code = rawCode ? rawCode.toString().trim() : `${shortCode}-${slugify(rawName)}`;
       return { name, code };
     }
@@ -560,13 +554,6 @@
     function showError(msg) { errorMessage.textContent = msg; errorBox.classList.remove('hidden'); }
     function hideError() { errorBox.classList.add('hidden'); }
 
-    function guessUnit(name) {
-      const s = name.toLowerCase();
-      if (/combipack|handle set|\bset\b|\bpair\b|\bkit\b/.test(s)) return 'SET';
-      if (/\bpcs\b|per pcs|per piece/.test(s)) return 'PCS';
-      return 'PCS';
-    }
-
     function addItem(partial, opts = {}) {
       const price = partial.price;
       const key = opts.forceUniqueKey ? 'manual:' + (manualRowCounter++) : dedupKey(partial.code, partial.name);
@@ -577,12 +564,10 @@
         name: partial.name,
         code: partial.code || '',
         hsn: partial.hsn || '',
-        unit: partial.unit || guessUnit(partial.name),
+        unit: partial.unit || detectSmartUnit(partial.name),
         sellingPrice: priceMode === 'selling' ? (price || '') : '',
         purchasePrice: priceMode === 'purchase' ? (price || '') : '',
-        stock: 0, // hard-locked — see note in Settings. Never read from a
-                  // setting or localStorage, so there is no path by which
-                  // this can ever become non-zero.
+        stock: 0,
         page: partial.page || 1,
         _key: key,
       });
@@ -634,10 +619,6 @@
             const { name, code } = applyBrand(brand, rawName, row.code);
             addItem({ category: row.family || 'Uncategorized', name, code, hsn: row.hsn, price: priceNum, page: row.page });
           });
-          // Keep the running counters live every page (cheap), but only
-          // redraw the full editable table every ~10 pages — rebuilding
-          // hundreds of input rows on every single page is the difference
-          // between "instant" and "sluggish" on a 100+ page catalog.
           itemsStat.textContent = items.length;
           dupesStat.textContent = duplicatesSkipped;
           if (pageNum % 10 === 0 || pageNum === totalPages) renderResults();
@@ -656,7 +637,7 @@
       const parsed = parseOcrText(ret.data.text, 'PCS');
       parsed.forEach(p => {
         const { name, code } = applyBrand(brand, p.name, '');
-        addItem({ category: p.category, name, code, price: p.price, unit: p.unit });
+        addItem({ category: p.category, name, code, price: p.price, unit: detectSmartUnit(p.name) });
       });
       itemsStat.textContent = items.length;
       dupesStat.textContent = duplicatesSkipped;
@@ -676,19 +657,12 @@
         });
         const visionOk = await extractVisionOpenAI(base64Image, apiKey, brand);
         if (!visionOk) {
-          // Network error, bad key, CORS block, etc. — don't just die with
-          // an error and no results. Fall back to the free on-page OCR so
-          // the upload still produces something.
           showError('Vision request failed (network/API issue) — falling back to on-page OCR instead.');
           updateProgress(0, 100, 'Vision failed — retrying with on-page OCR...');
           await runTesseractOcr(file, brand);
         }
       } else {
         await runTesseractOcr(file, brand);
-      }
-    }
-        dupesStat.textContent = duplicatesSkipped;
-        renderResults();
       }
     }
 
@@ -712,19 +686,23 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
             temperature: 0,
           }),
         });
-        if (!response.ok) { showError('OpenAI request failed (' + response.status + ')'); return; }
+        if (!response.ok) { showError('OpenAI request failed (' + response.status + ')'); return false; }
         const data = await response.json();
         const content = JSON.parse(data.choices[0].message.content);
         (content.items || []).forEach(it => {
           const price = parseFloat(String(it.price || '0').replace(/[^\d.]/g, ''));
           if (!it.itemName) return;
           const { name, code } = applyBrand(brand, it.itemName, '');
-          addItem({ category: it.category || 'Uncategorized', name, code, price: price || '', unit: guessUnit(it.itemName) });
+          addItem({ category: it.category || 'Uncategorized', name, code, price: price || '', unit: detectSmartUnit(it.itemName) });
         });
         itemsStat.textContent = items.length;
         dupesStat.textContent = duplicatesSkipped;
         renderResults();
-      } catch (e) { showError('Vision extract error: ' + e.message); }
+        return true;
+      } catch (e) { 
+        showError('Vision extract error: ' + e.message); 
+        return false;
+      }
     }
 
     // ---- Editable results table ----
