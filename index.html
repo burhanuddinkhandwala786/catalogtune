@@ -97,9 +97,11 @@
           <input type="text" id="brand-name" placeholder="e.g. Godrej, Daarvi, Amulya — exactly as it appears on the supplier's bill"
             class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
           <p class="text-[11px] text-slate-400 mt-1">
-            Every item name and item code from this upload is prefixed with this brand. That's what lets a
-            purchase bill from the same supplier match an existing item on re-import instead of creating a
-            duplicate/"ghost" item — use the name exactly as it appears on their invoices.
+            The <b>item name</b> gets this brand prefix (e.g. "Godrej - Advantis Remote") purely for your own
+            browsing/readability. The <b>item code stays exactly as printed by the supplier</b> when the source
+            has one (e.g. "5105", not "GODREJ-5105") — a purchase bill from them will only match an existing
+            item if the code matches verbatim, so we never alter it. A brand-prefixed internal code is only
+            generated for items that had no manufacturer code to begin with (simple rate cards).
           </p>
         </div>
 
@@ -498,15 +500,23 @@
       const shortCode = brandShortCode(brandTrim);
       // Don't double-prefix if the source text already starts with the brand
       // (common for PDF catalogs whose own product names already say
-      // "Godrej ..." on every line, or rate cards whose particulars already
+      // "Godrej ...' on every line, or rate cards whose particulars already
       // say "DAARVI ...").
       const alreadyPrefixed = rawName.trim().toUpperCase().startsWith(brandTrim.toUpperCase());
       const name = alreadyPrefixed ? rawName.trim() : `${brandTrim} - ${rawName.trim()}`;
-      // Prefer the manufacturer's own code (it's literally what's printed
-      // on their invoice) when we have one; otherwise derive a stable slug
-      // from the item name so the same product always gets the same code.
-      const bareCode = rawCode ? rawCode.toString().trim() : slugify(rawName);
-      const code = bareCode.toUpperCase().startsWith(shortCode) ? bareCode : `${shortCode}-${bareCode}`;
+      // IMPORTANT: when the source document already has a real manufacturer
+      // code, keep it EXACTLY as-is — no brand prefix. That raw code is
+      // what's literally printed on the supplier's purchase bill, so it has
+      // to match verbatim for Accountune to recognise the existing item
+      // instead of creating a new one. Prefixing it (e.g. "GODREJ-5105"
+      // when the bill just says "5105") would break that match and cause
+      // exactly the ghost-item problem this is meant to prevent.
+      //
+      // Only when there's NO manufacturer code at all (simple rate cards
+      // like a laminate price list) do we invent one, brand-prefixed, purely
+      // as an internal reference so two different suppliers' generically-
+      // named items ("SF", "HGF"...) don't collide with each other.
+      const code = rawCode ? rawCode.toString().trim() : `${shortCode}-${slugify(rawName)}`;
       return { name, code };
     }
 
@@ -635,6 +645,24 @@
       } catch (err) { showError('PDF Exception: ' + err.message); }
     }
 
+    async function runTesseractOcr(file, brand) {
+      const worker = await Tesseract.createWorker('eng', 1, {
+        logger: m => {
+          if (m.status === 'recognizing text') updateProgress(Math.round(m.progress * 100), 100, 'Reading text from image...');
+        },
+      });
+      const ret = await worker.recognize(file);
+      await worker.terminate();
+      const parsed = parseOcrText(ret.data.text, 'PCS');
+      parsed.forEach(p => {
+        const { name, code } = applyBrand(brand, p.name, '');
+        addItem({ category: p.category, name, code, price: p.price, unit: p.unit });
+      });
+      itemsStat.textContent = items.length;
+      dupesStat.textContent = duplicatesSkipped;
+      renderResults();
+    }
+
     async function processImageFile(file, brand) {
       pagesStat.textContent = '1/1';
       updateProgress(1, 1, 'Running OCR on image...');
@@ -646,21 +674,19 @@
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
-        await extractVisionOpenAI(base64Image, apiKey, brand);
+        const visionOk = await extractVisionOpenAI(base64Image, apiKey, brand);
+        if (!visionOk) {
+          // Network error, bad key, CORS block, etc. — don't just die with
+          // an error and no results. Fall back to the free on-page OCR so
+          // the upload still produces something.
+          showError('Vision request failed (network/API issue) — falling back to on-page OCR instead.');
+          updateProgress(0, 100, 'Vision failed — retrying with on-page OCR...');
+          await runTesseractOcr(file, brand);
+        }
       } else {
-        const worker = await Tesseract.createWorker('eng', 1, {
-          logger: m => {
-            if (m.status === 'recognizing text') updateProgress(Math.round(m.progress * 100), 100, 'Reading text from image...');
-          },
-        });
-        const ret = await worker.recognize(file);
-        await worker.terminate();
-        const parsed = parseOcrText(ret.data.text, 'PCS');
-        parsed.forEach(p => {
-          const { name, code } = applyBrand(brand, p.name, '');
-          addItem({ category: p.category, name, code, price: p.price, unit: p.unit });
-        });
-        itemsStat.textContent = items.length;
+        await runTesseractOcr(file, brand);
+      }
+    }
         dupesStat.textContent = duplicatesSkipped;
         renderResults();
       }
