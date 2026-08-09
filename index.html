@@ -52,11 +52,16 @@
         </div>
         <div class="space-y-4">
           <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Default Opening Quantity</label>
-            <select id="stock-setting" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
-              <option value="0">0 (Order-Based / Showroom Mode)</option>
-              <option value="1">1 (In-Stock Retail Mode)</option>
-            </select>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Opening Quantity</label>
+            <div class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-500 flex items-center justify-between">
+              <span>Locked at <b class="text-slate-800">0</b> for every item</span>
+              <i data-lucide="lock" class="w-3.5 h-3.5 text-slate-400"></i>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">
+              Not configurable on purpose: items here are order-based, not held in stock.
+              If you actually carry stock on a handful of SKUs, set the quantity for just
+              those specific items manually inside Accountune after import — never in bulk.
+            </p>
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">Default GST Rate % (leave blank to skip)</label>
@@ -84,6 +89,20 @@
 
       <!-- Upload Card -->
       <div id="upload-card" class="bg-white rounded-2xl border border-slate-200/80 p-8 shadow-sm">
+        <!-- Company / Brand Name (required) -->
+        <div class="mb-6">
+          <label class="block text-xs font-semibold text-slate-700 mb-2">
+            Company / Brand Name <span class="text-rose-500">*</span>
+          </label>
+          <input type="text" id="brand-name" placeholder="e.g. Godrej, Daarvi, Amulya — exactly as it appears on the supplier's bill"
+            class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
+          <p class="text-[11px] text-slate-400 mt-1">
+            Every item name and item code from this upload is prefixed with this brand. That's what lets a
+            purchase bill from the same supplier match an existing item on re-import instead of creating a
+            duplicate/"ghost" item — use the name exactly as it appears on their invoices.
+          </p>
+        </div>
+
         <div class="flex flex-col items-center text-center">
           <div id="drop-area" class="group cursor-pointer flex flex-col items-center justify-center py-6 px-4 transition w-full">
             <div class="h-12 w-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mb-4 group-hover:bg-slate-900 group-hover:text-white transition-all duration-300 shadow-sm">
@@ -125,6 +144,7 @@
           <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
             <span>Pages / Files: <b id="pages-stat" class="text-slate-800">0/0</b></span>
             <span>Items Found: <b id="items-stat" class="text-emerald-600">0</b></span>
+            <span>Duplicates Skipped: <b id="dupes-stat" class="text-amber-600">0</b></span>
             <button id="cancel-btn" class="text-rose-500 hover:underline font-medium hidden">Stop Processing</button>
           </div>
         </div>
@@ -211,7 +231,7 @@
       rec['Default Purchase Price Per Primary Unit'] = row.purchasePrice || '';
       rec['Default Unit for Purchase'] = 'primary';
       rec['Default Unit for Sales'] = 'primary';
-      rec['Opening Quantity'] = row.stock ?? '';
+      rec['Opening Quantity'] = 0; // hard-locked, ignores whatever is on the row
       rec['Opening Rate'] = row.purchasePrice || row.sellingPrice || '';
       return rec;
     }
@@ -419,7 +439,6 @@
     // APP STATE + WIRING
     // =========================================================================
     const apiKeyInput = document.getElementById('api-key');
-    const stockSetting = document.getElementById('stock-setting');
     const gstSetting = document.getElementById('gst-setting');
     const saveKeyBtn = document.getElementById('save-key-btn');
     const keyIndicator = document.getElementById('key-indicator');
@@ -434,6 +453,7 @@
     const progressBar = document.getElementById('progress-bar');
     const pagesStat = document.getElementById('pages-stat');
     const itemsStat = document.getElementById('items-stat');
+    const dupesStat = document.getElementById('dupes-stat');
     const cancelBtn = document.getElementById('cancel-btn');
     const resultsCard = document.getElementById('results-card');
     const tableBody = document.getElementById('table-body');
@@ -443,17 +463,57 @@
     const errorBox = document.getElementById('error-box');
     const errorMessage = document.getElementById('error-message');
     const priceModeGroup = document.getElementById('price-mode-group');
+    const brandNameInput = document.getElementById('brand-name');
 
     let items = []; // { category, name, code, hsn, unit, sellingPrice, purchasePrice, stock, page }
+    let itemKeys = new Set(); // dedup keys already inserted, so nothing is ever added twice
+    let duplicatesSkipped = 0;
+    let manualRowCounter = 0;
     let isCancelled = false;
     let priceMode = 'selling'; // 'selling' | 'purchase' | 'none'
 
+    function dedupKey(code, name) {
+      const c = (code || '').toString().trim().toLowerCase();
+      if (c) return 'code:' + c;
+      return 'name:' + name.toString().trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+
+    // Company-named SKU/name generation. The whole point: when you later
+    // upload a purchase bill from the SAME supplier, the item name/code
+    // already in Accountune should read the same way the bill does, so
+    // Accountune matches the existing item instead of silently creating a
+    // new "ghost" one. Deterministic (same input -> same code every time),
+    // so re-processing the same file twice never mints a second code for
+    // the same product.
+    function brandShortCode(brand) {
+      return brand.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0, 12) || 'BRAND';
+    }
+
+    function slugify(text) {
+      return text.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+    }
+
+    function applyBrand(brand, rawName, rawCode) {
+      const brandTrim = brand.trim();
+      const shortCode = brandShortCode(brandTrim);
+      // Don't double-prefix if the source text already starts with the brand
+      // (common for PDF catalogs whose own product names already say
+      // "Godrej ..." on every line, or rate cards whose particulars already
+      // say "DAARVI ...").
+      const alreadyPrefixed = rawName.trim().toUpperCase().startsWith(brandTrim.toUpperCase());
+      const name = alreadyPrefixed ? rawName.trim() : `${brandTrim} - ${rawName.trim()}`;
+      // Prefer the manufacturer's own code (it's literally what's printed
+      // on their invoice) when we have one; otherwise derive a stable slug
+      // from the item name so the same product always gets the same code.
+      const bareCode = rawCode ? rawCode.toString().trim() : slugify(rawName);
+      const code = bareCode.toUpperCase().startsWith(shortCode) ? bareCode : `${shortCode}-${bareCode}`;
+      return { name, code };
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       const savedKey = localStorage.getItem('catalogtune_openai_key');
-      const savedStock = localStorage.getItem('catalogtune_default_stock');
       const savedGst = localStorage.getItem('catalogtune_default_gst');
       if (savedKey) { apiKeyInput.value = savedKey; keyIndicator.classList.remove('hidden'); }
-      if (savedStock) stockSetting.value = savedStock;
       if (savedGst) gstSetting.value = savedGst;
       setPriceMode('selling');
     });
@@ -462,7 +522,6 @@
     closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
     saveKeyBtn.addEventListener('click', () => {
       const key = apiKeyInput.value.trim();
-      localStorage.setItem('catalogtune_default_stock', stockSetting.value);
       localStorage.setItem('catalogtune_default_gst', gstSetting.value || '');
       if (key) { localStorage.setItem('catalogtune_openai_key', key); keyIndicator.classList.remove('hidden'); }
       else { localStorage.removeItem('catalogtune_openai_key'); keyIndicator.classList.add('hidden'); }
@@ -498,9 +557,11 @@
       return 'PCS';
     }
 
-    function addItem(partial) {
-      const defaultStock = parseInt(localStorage.getItem('catalogtune_default_stock') || '0');
+    function addItem(partial, opts = {}) {
       const price = partial.price;
+      const key = opts.forceUniqueKey ? 'manual:' + (manualRowCounter++) : dedupKey(partial.code, partial.name);
+      if (!opts.forceUniqueKey && itemKeys.has(key)) { duplicatesSkipped++; return false; }
+      itemKeys.add(key);
       items.push({
         category: partial.category || 'Uncategorized',
         name: partial.name,
@@ -509,25 +570,39 @@
         unit: partial.unit || guessUnit(partial.name),
         sellingPrice: priceMode === 'selling' ? (price || '') : '',
         purchasePrice: priceMode === 'purchase' ? (price || '') : '',
-        stock: defaultStock,
+        stock: 0, // hard-locked — see note in Settings. Never read from a
+                  // setting or localStorage, so there is no path by which
+                  // this can ever become non-zero.
         page: partial.page || 1,
+        _key: key,
       });
+      return true;
     }
 
     async function startProcessing(file) {
       hideError();
+      const brand = brandNameInput.value.trim();
+      if (!brand) {
+        showError('Enter the Company / Brand Name before uploading — every item name and SKU is built from it, and it\'s what lets a later purchase-bill upload match existing items instead of creating duplicates.');
+        fileInput.value = '';
+        return;
+      }
       isCancelled = false;
       items = [];
+      itemKeys = new Set();
+      duplicatesSkipped = 0;
+      manualRowCounter = 0;
+      dupesStat.textContent = '0';
       tableBody.innerHTML = '';
       resultsCard.classList.add('hidden');
       progressContainer.classList.remove('hidden');
       cancelBtn.classList.remove('hidden');
-      if (file.type === 'application/pdf') await processPdfSpatial(file);
-      else await processImageFile(file);
+      if (file.type === 'application/pdf') await processPdfSpatial(file, brand);
+      else await processImageFile(file, brand);
       finishProcessing();
     }
 
-    async function processPdfSpatial(file) {
+    async function processPdfSpatial(file, brand) {
       try {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -545,16 +620,22 @@
             const priceNum = parseInt(row.mrp, 10);
             if (!row.code || !Number.isFinite(priceNum) || priceNum <= 0) return;
             const spec = row.spec.replace(/\s+/g, ' ').trim();
-            const name = spec ? `${row.name.trim()} - ${spec}` : row.name.trim();
-            addItem({ category: row.family || 'Uncategorized', name, code: row.code, hsn: row.hsn, price: priceNum, page: row.page });
+            const rawName = spec ? `${row.name.trim()} - ${spec}` : row.name.trim();
+            const { name, code } = applyBrand(brand, rawName, row.code);
+            addItem({ category: row.family || 'Uncategorized', name, code, hsn: row.hsn, price: priceNum, page: row.page });
           });
+          // Keep the running counters live every page (cheap), but only
+          // redraw the full editable table every ~10 pages — rebuilding
+          // hundreds of input rows on every single page is the difference
+          // between "instant" and "sluggish" on a 100+ page catalog.
           itemsStat.textContent = items.length;
-          renderResults();
+          dupesStat.textContent = duplicatesSkipped;
+          if (pageNum % 10 === 0 || pageNum === totalPages) renderResults();
         }
       } catch (err) { showError('PDF Exception: ' + err.message); }
     }
 
-    async function processImageFile(file) {
+    async function processImageFile(file, brand) {
       pagesStat.textContent = '1/1';
       updateProgress(1, 1, 'Running OCR on image...');
       const apiKey = apiKeyInput.value.trim() || localStorage.getItem('catalogtune_openai_key');
@@ -565,7 +646,7 @@
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
-        await extractVisionOpenAI(base64Image, apiKey);
+        await extractVisionOpenAI(base64Image, apiKey, brand);
       } else {
         const worker = await Tesseract.createWorker('eng', 1, {
           logger: m => {
@@ -575,13 +656,17 @@
         const ret = await worker.recognize(file);
         await worker.terminate();
         const parsed = parseOcrText(ret.data.text, 'PCS');
-        parsed.forEach(p => addItem({ category: p.category, name: p.name, price: p.price, unit: p.unit }));
+        parsed.forEach(p => {
+          const { name, code } = applyBrand(brand, p.name, '');
+          addItem({ category: p.category, name, code, price: p.price, unit: p.unit });
+        });
         itemsStat.textContent = items.length;
+        dupesStat.textContent = duplicatesSkipped;
         renderResults();
       }
     }
 
-    async function extractVisionOpenAI(base64Image, apiKey) {
+    async function extractVisionOpenAI(base64Image, apiKey, brand) {
       const prompt = `Extract every product/particular line from this price list image, including its price.
 Some rows are grouped under a bold category header (e.g. "AMULYA 1MM") that applies to several rows below it —
 include that category text as part of "category" for each row under it, and include any sub-label
@@ -607,9 +692,11 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
         (content.items || []).forEach(it => {
           const price = parseFloat(String(it.price || '0').replace(/[^\d.]/g, ''));
           if (!it.itemName) return;
-          addItem({ category: it.category || 'Uncategorized', name: it.itemName, price: price || '', unit: guessUnit(it.itemName) });
+          const { name, code } = applyBrand(brand, it.itemName, '');
+          addItem({ category: it.category || 'Uncategorized', name, code, price: price || '', unit: guessUnit(it.itemName) });
         });
         itemsStat.textContent = items.length;
+        dupesStat.textContent = duplicatesSkipped;
         renderResults();
       } catch (e) { showError('Vision extract error: ' + e.message); }
     }
@@ -632,7 +719,11 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
           <td class="p-1.5">${cellInput(i, 'sellingPrice', item.sellingPrice, 'number')}</td>
           <td class="p-1.5">${cellInput(i, 'purchasePrice', item.purchasePrice, 'number')}</td>
           <td class="p-1.5">${cellInput(i, 'gst', item.gst, 'number')}</td>
-          <td class="p-1.5">${cellInput(i, 'stock', item.stock, 'number')}</td>
+          <td class="p-1.5 text-center">
+            <span class="inline-flex items-center gap-1 text-slate-400 font-mono text-[11px]" title="Locked to 0 — order-based inventory, not held in stock">
+              0 <i data-lucide="lock" class="w-3 h-3"></i>
+            </span>
+          </td>
           <td class="p-1.5 text-center">
             <button class="del-row-btn text-slate-300 hover:text-rose-500 transition" data-row="${i}">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -656,12 +747,13 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
       const btn = e.target.closest('.del-row-btn');
       if (!btn) return;
       const row = parseInt(btn.dataset.row, 10);
+      if (items[row] && items[row]._key) itemKeys.delete(items[row]._key);
       items.splice(row, 1);
       renderResults();
     });
 
     addRowBtn.addEventListener('click', () => {
-      addItem({ category: 'Uncategorized', name: 'New Item', price: '' });
+      addItem({ category: 'Uncategorized', name: 'New Item', price: '' }, { forceUniqueKey: true });
       renderResults();
     });
 
