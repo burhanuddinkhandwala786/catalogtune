@@ -358,6 +358,7 @@
 
     // =========================================================================
     // IMAGE / PHOTO OCR PARSER
+    // Fixed for rate-cards with multi-line text blocks + trailing prices
     // =========================================================================
     const OCR_NOISE_PATTERNS = [
       /discount/i, /guarantee/i, /crack/i, /bubble/i, /no return/i, /exchange/i,
@@ -375,12 +376,10 @@
       return OCR_NOISE_PATTERNS.some(re => re.test(s));
     }
 
-    // Flexible price regex matching formats like "790/-", "1485 / -", "2700.00", or "790"
-    const PRICE_TAIL_RE = /([\d]{3,6})\s*(?:\/|-|\.00)*\s*$/;
-
     function parseOcrText(text, defaultUnit) {
       const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
       const rows = [];
+      let pendingName = '';
       let runningCategory = '';
 
       for (let i = 0; i < rawLines.length; i++) {
@@ -390,37 +389,39 @@
         // Detect section headers (e.g., AMULYA 800 0.8MM, AMULYA 1MM, IMPERIAL)
         if (/(AMULYA|IMPERIAL|PVC|LINEAR|SYNCHRONIZE)/i.test(line) && !line.includes('/-') && !/\b\d{3,5}\b/.test(line)) {
           runningCategory = line.replace(/[:\-]+$/, '').trim();
+          pendingName = '';
           continue;
         }
 
         // Match any price pattern at the end of a line (e.g., 790/-, 1485/-, 2700, 2700/-)
         const priceMatch = line.match(/(\d{3,5})\s*(?:\/-|\/|-)?\s*$/);
         
-        if (priceMatch) {
-          const price = parseInt(priceMatch[1], 10);
-          if (price >= 100 && price <= 200000) {
-            let textBefore = line.slice(0, priceMatch.index).trim();
-            
-            // If the name is too short, pull preceding descriptive lines
-            if (textBefore.length < 3 && i > 0 && !isNoiseLine(rawLines[i-1])) {
-              textBefore = rawLines[i-1] + ' ' + textBefore;
-            }
+        if (!priceMatch) {
+          pendingName = (pendingName + ' ' + line).trim();
+          continue;
+        }
 
-            let name = textBefore.replace(/^\d+[.)]?\s+/, '').replace(/[\/|-]+$/, '').trim();
-            if (!name) name = runningCategory;
+        const price = parseInt(priceMatch[1], 10);
+        if (price < 50 || price > 200000) continue;
 
-            const fullName = runningCategory && !name.toUpperCase().includes(runningCategory.toUpperCase())
-              ? `${runningCategory} ${name}`.trim() : name;
+        let textBefore = line.slice(0, priceMatch.index).trim();
+        
+        // Accumulate multi-line descriptions
+        let name = (pendingName + ' ' + textBefore).replace(/\s+/g, ' ').trim();
+        name = name.replace(/^\d+[.)]?\s+/, '').replace(/[\/|-]+$/, '').trim();
+        pendingName = '';
 
-            if (fullName) {
-              rows.push({
-                name: fullName.replace(/\s+/g, ' ').trim(),
-                category: runningCategory || 'Laminates & Sheets',
-                price: price,
-                unit: defaultUnit || 'PCS'
-              });
-            }
-          }
+        if (!name) name = runningCategory;
+        const fullName = runningCategory && !name.toUpperCase().includes(runningCategory.toUpperCase())
+          ? `${runningCategory} ${name}`.trim() : name;
+
+        if (fullName) {
+          rows.push({
+            name: fullName.replace(/\s+/g, ' ').trim(),
+            category: runningCategory || 'Laminates & Sheets',
+            price: price,
+            unit: defaultUnit || 'PCS'
+          });
         }
       }
       return rows;
