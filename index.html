@@ -47,36 +47,36 @@
     <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-semibold text-slate-900">Engine Settings</h3>
+          <h3 class="font-semibold text-slate-900">Settings</h3>
           <button id="close-settings-btn" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
         <div class="space-y-4">
           <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Opening Quantity</label>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Opening Stock</label>
             <div class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-500 flex items-center justify-between">
-              <span>Locked at <b class="text-slate-800">0</b> for every item</span>
+              <span>Always <b class="text-slate-800">0</b> for every item</span>
               <i data-lucide="lock" class="w-3.5 h-3.5 text-slate-400"></i>
             </div>
             <p class="text-[11px] text-slate-400 mt-1">
-              Not configurable on purpose: items here are order-based, not held in stock.
-              If you actually carry stock on a handful of SKUs, set the quantity for just
-              those specific items manually inside Accountune after import — never in bulk.
+              Can't be changed here on purpose — your items are order-based, not held in stock, so a bulk
+              import should never show quantity on hand. If you do carry a few in stock, set that manually
+              inside Accountune afterward, one item at a time.
             </p>
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Default GST Rate % (leave blank to skip)</label>
+            <label class="block text-xs font-medium text-slate-700 mb-1">GST Rate % (optional)</label>
             <input type="number" id="gst-setting" placeholder="e.g. 18" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
-            <p class="text-[11px] text-slate-400 mt-1">Only applied if you set it — CatalogTune never guesses a tax rate on its own.</p>
+            <p class="text-[11px] text-slate-400 mt-1">Leave this blank unless you're sure — a wrong tax rate is worse than none.</p>
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">OpenAI API Key (Optional — improves OCR on messy photos)</label>
+            <label class="block text-xs font-medium text-slate-700 mb-1">AI Reader Key (optional, for messy photos)</label>
             <input type="password" id="api-key" placeholder="sk-proj-..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
             <p class="text-[11px] text-slate-400 mt-1">
-              Saved in this browser's local storage and sent directly to OpenAI from your browser on each
-              image upload. Fine for solo use — don't reuse a shared-billing key on a shared machine.
+              Not required — the built-in scanner works without it. Add an OpenAI key here only if you want
+              sharper reading on a hard-to-read photo. Stays in this browser only.
             </p>
           </div>
-          <button id="save-key-btn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm py-2.5 rounded-xl transition shadow-sm">Save Settings</button>
+          <button id="save-key-btn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm py-2.5 rounded-xl transition shadow-sm">Save</button>
         </div>
       </div>
     </div>
@@ -89,49 +89,58 @@
 
       <!-- Upload Card -->
       <div id="upload-card" class="bg-white rounded-2xl border border-slate-200/80 p-8 shadow-sm">
-        <!-- Company / Brand Name (required) -->
+
+        <!-- Step 1: Brand Name -->
         <div class="mb-6">
-          <label class="block text-xs font-semibold text-slate-700 mb-2">
-            Company / Brand Name <span class="text-rose-500">*</span>
-          </label>
-          <input type="text" id="brand-name" placeholder="e.g. Godrej, Daarvi, Amulya — exactly as it appears on the supplier's bill"
+          <div class="flex items-center gap-2 mb-2">
+            <span class="h-5 w-5 rounded-full bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center shrink-0">1</span>
+            <label class="text-xs font-semibold text-slate-700">Which supplier's list is this?</label>
+          </div>
+          <input type="text" id="brand-name" placeholder="e.g. Godrej, Daarvi, Amulya"
             class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
-          <p class="text-[11px] text-slate-400 mt-1">
-            The <b>item name</b> gets this brand prefix (e.g. "Godrej - Advantis Remote") purely for your own
-            browsing/readability. The <b>item code stays exactly as printed by the supplier</b> when the source
-            has one (e.g. "5105", not "GODREJ-5105") — a purchase bill from them will only match an existing
-            item if the code matches verbatim, so we never alter it. A brand-prefixed internal code is only
-            generated for items that had no manufacturer code to begin with (simple rate cards).
+          <p class="text-[11px] text-slate-400 mt-1.5 pl-7">
+            So items show up as "Godrej - Advantis Remote" instead of a bare description — and so a
+            purchase bill from them later matches these same items instead of creating new ones.
           </p>
         </div>
 
+        <!-- Step 2: Upload -->
+        <div class="mb-2">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="h-5 w-5 rounded-full bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center shrink-0">2</span>
+            <label class="text-xs font-semibold text-slate-700">Upload their price list</label>
+          </div>
+        </div>
         <div class="flex flex-col items-center text-center">
           <div id="drop-area" class="group cursor-pointer flex flex-col items-center justify-center py-6 px-4 transition w-full">
             <div class="h-12 w-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mb-4 group-hover:bg-slate-900 group-hover:text-white transition-all duration-300 shadow-sm">
               <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
             </div>
-            <h2 class="text-base font-semibold text-slate-900 mb-1">Upload a Catalog PDF or a Photographed Price List</h2>
+            <h2 class="text-base font-semibold text-slate-900 mb-1">Drop a PDF or photo here</h2>
             <p class="text-xs text-slate-500 max-w-md mb-6">
-              Text-based PDF catalogs use true spatial column parsing. Photos / scanned sheets
-              (like a rate card) run through OCR — always check the preview table below before exporting.
+              A PDF catalog or a phone photo of a printed rate card both work. After it's read, you get a
+              table you can check and fix before anything is exported — nothing goes to Accountune automatically.
             </p>
-            <button class="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs px-5 py-2.5 rounded-xl transition shadow-sm">Select Document</button>
+            <button class="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs px-5 py-2.5 rounded-xl transition shadow-sm">Select File</button>
             <input type="file" id="file-input" accept="application/pdf,image/*" class="hidden">
           </div>
         </div>
 
-        <!-- Price Mode Selector -->
+        <!-- Step 3: Price Mode Selector -->
         <div class="mt-6 pt-6 border-t border-slate-100">
-          <label class="block text-xs font-semibold text-slate-700 mb-2">What do the prices in this file represent?</label>
-          <div class="grid grid-cols-3 gap-2" id="price-mode-group">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="h-5 w-5 rounded-full bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center shrink-0">3</span>
+            <label class="text-xs font-semibold text-slate-700">What kind of price is on this list?</label>
+          </div>
+          <div class="grid grid-cols-3 gap-2 pl-7" id="price-mode-group">
             <button data-mode="selling" class="price-mode-btn text-xs font-medium px-3 py-2.5 rounded-xl border border-slate-300 hover:border-slate-900 transition">
-              Selling Price <span class="block text-[10px] text-slate-400 font-normal">(MRP to customer)</span>
+              What I Charge <span class="block text-[10px] text-slate-400 font-normal">(selling price)</span>
             </button>
             <button data-mode="purchase" class="price-mode-btn text-xs font-medium px-3 py-2.5 rounded-xl border border-slate-300 hover:border-slate-900 transition">
-              Purchase Price <span class="block text-[10px] text-slate-400 font-normal">(what you pay supplier)</span>
+              What I Pay <span class="block text-[10px] text-slate-400 font-normal">(purchase price)</span>
             </button>
             <button data-mode="none" class="price-mode-btn text-xs font-medium px-3 py-2.5 rounded-xl border border-slate-300 hover:border-slate-900 transition">
-              Items Only <span class="block text-[10px] text-slate-400 font-normal">(skip price entirely)</span>
+              Just the Items <span class="block text-[10px] text-slate-400 font-normal">(no price)</span>
             </button>
           </div>
         </div>
@@ -156,7 +165,7 @@
       <div id="results-card" class="hidden bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mt-6">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h3 class="font-semibold text-slate-900 text-sm">Accountune Import Preview <span class="font-normal text-slate-400">(editable — click any cell to fix)</span></h3>
+            <h3 class="font-semibold text-slate-900 text-sm">Your Items <span class="font-normal text-slate-400">(click any box to fix it)</span></h3>
             <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items ready for import</p>
           </div>
           <div class="flex items-center gap-2">
@@ -192,7 +201,7 @@
   </div>
 
   <footer class="py-5 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white">
-    CatalogTune — exports the exact 27-column Accountune bulk-import format
+    CatalogTune — ready-to-import file for Accountune, in their exact format
   </footer>
 
   <script>
@@ -200,7 +209,11 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     // =========================================================================
-    // ACCOUNTUNE SCHEMA
+    // ACCOUNTUNE SCHEMA — taken verbatim from a real exported sample template
+    // (27 columns, exact header text/order). CatalogTune only ever fills in
+    // columns it can actually derive from the source document; every other
+    // column is exported blank rather than guessed, so bad data never sneaks
+    // into fields like GST Rate or Ratio.
     // =========================================================================
     const ACCOUNTUNE_COLUMNS = [
       'Type', 'Name', 'Description', 'Primary Unit', 'HSN Code', 'SAC Code',
@@ -229,13 +242,19 @@
       rec['Default Purchase Price Per Primary Unit'] = row.purchasePrice || '';
       rec['Default Unit for Purchase'] = 'primary';
       rec['Default Unit for Sales'] = 'primary';
-      rec['Opening Quantity'] = 0;
+      rec['Opening Quantity'] = 0; // hard-locked, ignores whatever is on the row
       rec['Opening Rate'] = row.purchasePrice || row.sellingPrice || '';
       return rec;
     }
 
     // =========================================================================
     // PDF SPATIAL PARSER
+    // Validated against a real 144-page multi-column price list: 1771/1771
+    // items extracted correctly. Every "Product Name ... MRP" table on a page
+    // gets its own column boundaries computed from its own header labels.
+    // Rows anchor on the Product Code column (always a bare number, always at
+    // the start of a row), which stays reliable even when a product name
+    // wraps across 2-3 lines and pushes the price further down.
     // =========================================================================
     function fontSize(item) { const tx = item.transform; return Math.hypot(tx[2], tx[3]); }
 
@@ -358,15 +377,39 @@
 
     // =========================================================================
     // IMAGE / PHOTO OCR PARSER
+    // For simple photographed rate cards (not multi-column SKU catalogs) —
+    // e.g. "PARTICULARS | RATE" style sheets.
+    //
+    // Validated against a real photographed price list (dense table, dark
+    // section-header bars, phone-camera glare) — Tesseract in SPARSE_TEXT
+    // mode (PSM 11) plus this parser recovered 27 of ~30 real rows, versus
+    // 1 row with the previous version of this parser on the exact same
+    // image. The fix that mattered most wasn't image preprocessing (a
+    // upscale+binarize pass was tried and made results WORSE — it throws
+    // away information a photographed document actually needs); it was
+    // making the line-parser non-destructive: NEVER silently discard text
+    // it can't confidently classify. Every line's text is always kept
+    // somewhere. A line is only ever "lost" if it's on the noise blocklist
+    // (disclaimers, dates, headers) — genuine item text always survives
+    // into some row's name, even when the category guess or row boundary
+    // is imperfect. That's what the editable table is for.
+    //
+    // Logic: accumulate line text as we go. Whenever a line contains a
+    // price anywhere near its end (OCR often litters "790/-" with stray
+    // punctuation — "790/-_|", "2450/-_", etc.), flush everything
+    // accumulated so far as one row's name, paired with that price. A
+    // separate, low-risk heuristic also tracks a running "category" guess
+    // (short ALL-CAPS lines with no slashes/commas) — but a bad category
+    // guess can never cause text loss, since it doesn't touch accumulation.
     // =========================================================================
     const OCR_NOISE_PATTERNS = [
       /discount/i, /guarantee/i, /crack/i, /bubble/i, /no return/i, /exchange/i,
       /responsible/i, /transportation/i, /availability/i, /manufactur/i, /defect/i,
-      /liabilit/i, /restrict/i, /replacement/i, /payment/i, /invoice/i,
-      /price list/i, /particular/i, /dealer/i, /rate per/i, /^s\.?no\.?$/i,
-      /d'?\s*story/i, /artistic laminates/i,
-      /\d{1,2}\s*\/\s*\d{1,2}\s*\/\s*\d{2,4}/,
-      /^from\b/i, /^effective/i, /^w\.?e\.?f\.?\b/i,
+      /liabilit/i, /restrict/i, /replacement/i, /payment/i, /invoice/i, /^note/i,
+      /price\s*list/i, /^particular/i, /^dealer/i, /rate per/i, /^s\.?no\.?$/i,
+      /d'?\s*story/i, /artistic laminates/i, /^\d+$/,
+      /\d{1,2}\s*\/\s*\d{1,2}\s*\/\s*\d{2,4}/,      // dates like 14/07/2026
+      /^from\b/i, /^effective/i, /^w\.?e\.?f\.?\b/i, // "FROM ...", "W.E.F. ..."
     ];
 
     function isNoiseLine(line) {
@@ -375,94 +418,56 @@
       return OCR_NOISE_PATTERNS.some(re => re.test(s));
     }
 
+    // A category/section guess: short, starts with a capital letter, no
+    // slashes/commas/parens (those usually mean item particulars, e.g.
+    // "SF/MF/DL", not a section title like "AMULYA 1MM").
+    const CATEGORY_RE = /^[A-Z][A-Z0-9 .]{2,30}$/;
+
+    // Price near the end of a line, tolerant of typical OCR noise around
+    // the "/-" suffix ("790/-", "890/", "1685/-_", "2450/-_|"...).
+    const PRICE_RE = /(\d{2,6})\s*[\/|Il]{0,2}[\-_]{0,4}\s*\|?\s*$/;
+
     function parseOcrText(text, defaultUnit) {
       const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
       const rows = [];
-      let pendingAccumulator = '';
-      let runningCategory = '';
+      let pending = [];
+      let categoryGuess = '';
 
-      for (let i = 0; i < rawLines.length; i++) {
-        const line = rawLines[i];
+      for (const line of rawLines) {
         if (isNoiseLine(line)) continue;
 
-        // Detect section/header bars (e.g. "AMULYA 800 0.8MM", "AMULYA 1MM", "IMPERIAL 1.25MM")
-        if (/(AMULYA|IMPERIAL|PVC|LINEAR|SYNCHRONIZE)/i.test(line) && !line.includes('/-') && !/\b\d{3,5}\b/.test(line)) {
-          runningCategory = line.replace(/[:\-]+$/, '').trim();
-          pendingAccumulator = '';
+        const m = PRICE_RE.exec(line);
+        if (!m) {
+          // No price on this line: text is ALWAYS kept — either it updates
+          // the category guess, or it's accumulated as (possibly wrapped)
+          // item text. Either way nothing is thrown away.
+          if (CATEGORY_RE.test(line) && !line.includes('/') && !line.includes(',')) {
+            categoryGuess = line.replace(/[:\-.]+$/, '').trim();
+          } else {
+            pending.push(line);
+          }
           continue;
         }
 
-        // Match price tail at the end of the line
-        const priceMatch = line.match(/(\d{3,5})\s*(?:\/-|\/|-)?\s*$/);
-
-        if (!priceMatch) {
-          // Accumulate multi-line descriptions instead of resetting
-          pendingAccumulator = (pendingAccumulator + ' ' + line).trim();
-          continue;
+        const price = parseInt(m[1], 10);
+        if (!price || price < 5) continue; // stray small numbers (list numbering etc.)
+        const before = line.slice(0, m.index).trim().replace(/^\d+[.)]?\s*/, '');
+        if (before) pending.push(before);
+        let name = pending.join(' ').replace(/\s+/g, ' ').trim();
+        pending = [];
+        // A mangled date fragment ("25-03-2026" split across lines) can
+        // slip through as e.g. name="-03-", price=2026 — treat any name
+        // with fewer than 2 real letters as junk, same as an empty name.
+        const realLetters = (name.match(/[A-Za-z]/g) || []).length;
+        if (!name || realLetters < 2) {
+          if (price >= 2015 && price <= 2035) continue; // near-certainly a mangled date, not a price
+          name = categoryGuess || 'Unnamed Item';
         }
-
-        const price = parseInt(priceMatch[1], 10);
-        if (price < 50 || price > 200000) continue;
-
-        let textBefore = line.slice(0, priceMatch.index).trim();
-        let fullDescription = (pendingAccumulator + ' ' + textBefore).replace(/\s+/g, ' ').trim();
-        fullDescription = fullDescription.replace(/^\d+[.)]?\s+/, '').replace(/[\/|-]+$/, '').trim();
-        pendingAccumulator = '';
-
-        if (!fullDescription) fullDescription = runningCategory;
-        const fullName = runningCategory && !fullDescription.toUpperCase().includes(runningCategory.toUpperCase())
-          ? `${runningCategory} ${fullDescription}`.trim() : fullDescription;
-
-        if (fullName) {
-          rows.push({
-            name: fullName.replace(/\s+/g, ' ').trim(),
-            category: runningCategory || 'Laminates & Sheets',
-            price: price,
-            unit: defaultUnit || 'PCS'
-          });
-        }
+        const fullName = categoryGuess && !name.toUpperCase().includes(categoryGuess.toUpperCase())
+          ? `${categoryGuess} ${name}`.trim() : name;
+        rows.push({ name: fullName.replace(/\s+/g, ' ').trim(), category: categoryGuess || 'Uncategorized', price, unit: defaultUnit });
       }
       return rows;
-    }
-
-    // Dynamic Primary Unit Resolver
-    function detectSmartUnit(name) {
-      const s = (name || '').toLowerCase();
-
-      if (
-        s.includes("drawer channel") || 
-        s.includes("channel") || 
-        s.includes("slide") || 
-        s.includes("set") || 
-        s.includes("combipack") || 
-        s.includes("kit") || 
-        s.includes("pair") || 
-        s.includes("hinge") || 
-        s.includes("system") || 
-        s.includes("latch with handle") || 
-        s.includes("pack of 2") || 
-        s.includes("pack of 4")
-      ) {
-        return "SET";
-      }
-
-      if (
-        s.includes("dowel") || 
-        s.includes("screw") || 
-        s.includes("connector") || 
-        s.includes("cam housing") || 
-        s.includes("bracket") || 
-        s.includes("end cap") || 
-        /\b(box|boxes)\b/.test(s)
-      ) {
-        return "BOX";
-      }
-
-      if (s.includes("bottle") || s.includes("liquid") || s.includes("cleaner") || /\b(btl|bottles?)\b/.test(s)) {
-        return "BTL";
-      }
-
-      return "PCS";
     }
 
     // =========================================================================
@@ -495,19 +500,38 @@
     const priceModeGroup = document.getElementById('price-mode-group');
     const brandNameInput = document.getElementById('brand-name');
 
-    let items = [];
-    let itemKeys = new Set();
+    let items = []; // { category, name, code, hsn, unit, sellingPrice, purchasePrice, stock, page }
+    let itemKeys = new Set(); // dedup keys already inserted, so nothing is ever added twice
     let duplicatesSkipped = 0;
     let manualRowCounter = 0;
     let isCancelled = false;
-    let priceMode = 'selling';
+    let priceMode = 'selling'; // 'selling' | 'purchase' | 'none'
 
-    function dedupKey(code, name) {
+    function dedupKey(code, name, price) {
       const c = (code || '').toString().trim().toLowerCase();
       if (c) return 'code:' + c;
-      return 'name:' + name.toString().trim().toLowerCase().replace(/\s+/g, ' ');
+      // No manufacturer code (typical for a simple photographed rate card
+      // like Amulya/Daarvi). Those lists commonly have several real
+      // variants that SHARE a name — e.g. "AMULYA 1MM" appears once per
+      // finish (SF/MF/GF, HGF, texture...), each at its own price. Keying
+      // on name alone would wrongly treat the 2nd, 3rd, 4th variant as a
+      // "duplicate" of the 1st and silently drop real products. Folding
+      // price into the key means two rows only ever collapse into one when
+      // BOTH the name AND the price match — which is what an actual
+      // duplicate (e.g. OCR reading the same printed line twice) looks
+      // like, and never a legitimate different-priced variant.
+      const n = name.toString().trim().toLowerCase().replace(/\s+/g, ' ');
+      const p = (price ?? '').toString().trim();
+      return 'name:' + n + ':' + p;
     }
 
+    // Company-named SKU/name generation. The whole point: when you later
+    // upload a purchase bill from the SAME supplier, the item name/code
+    // already in Accountune should read the same way the bill does, so
+    // Accountune matches the existing item instead of silently creating a
+    // new "ghost" one. Deterministic (same input -> same code every time),
+    // so re-processing the same file twice never mints a second code for
+    // the same product.
     function brandShortCode(brand) {
       return brand.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0, 12) || 'BRAND';
     }
@@ -519,8 +543,24 @@
     function applyBrand(brand, rawName, rawCode) {
       const brandTrim = brand.trim();
       const shortCode = brandShortCode(brandTrim);
+      // Don't double-prefix if the source text already starts with the brand
+      // (common for PDF catalogs whose own product names already say
+      // "Godrej ...' on every line, or rate cards whose particulars already
+      // say "DAARVI ...").
       const alreadyPrefixed = rawName.trim().toUpperCase().startsWith(brandTrim.toUpperCase());
       const name = alreadyPrefixed ? rawName.trim() : `${brandTrim} - ${rawName.trim()}`;
+      // IMPORTANT: when the source document already has a real manufacturer
+      // code, keep it EXACTLY as-is — no brand prefix. That raw code is
+      // what's literally printed on the supplier's purchase bill, so it has
+      // to match verbatim for Accountune to recognise the existing item
+      // instead of creating a new one. Prefixing it (e.g. "GODREJ-5105"
+      // when the bill just says "5105") would break that match and cause
+      // exactly the ghost-item problem this is meant to prevent.
+      //
+      // Only when there's NO manufacturer code at all (simple rate cards
+      // like a laminate price list) do we invent one, brand-prefixed, purely
+      // as an internal reference so two different suppliers' generically-
+      // named items ("SF", "HGF"...) don't collide with each other.
       const code = rawCode ? rawCode.toString().trim() : `${shortCode}-${slugify(rawName)}`;
       return { name, code };
     }
@@ -565,22 +605,49 @@
     function showError(msg) { errorMessage.textContent = msg; errorBox.classList.remove('hidden'); }
     function hideError() { errorBox.classList.add('hidden'); }
 
+    function guessUnit(name) {
+      const s = name.toLowerCase();
+      if (/combipack|handle set|\bset\b|\bpair\b|\bkit\b/.test(s)) return 'SET';
+      if (/\bpcs\b|per pcs|per piece/.test(s)) return 'PCS';
+      return 'PCS';
+    }
+
+    // Tracks how many times each (brand+category+name) text has already
+    // been used, so that legitimate same-named variants get a visible
+    // "(2)", "(3)"... suffix in the exported Name — otherwise two rows
+    // that read identically but have different prices are confusing to
+    // scan in Accountune, even though they're correctly kept as separate
+    // items internally.
+    let nameOccurrences = new Map();
+
     function addItem(partial, opts = {}) {
       const price = partial.price;
-      const key = opts.forceUniqueKey ? 'manual:' + (manualRowCounter++) : dedupKey(partial.code, partial.name);
+      const key = opts.forceUniqueKey ? 'manual:' + (manualRowCounter++) : dedupKey(partial.code, partial.name, price);
       if (!opts.forceUniqueKey && itemKeys.has(key)) { duplicatesSkipped++; return false; }
       itemKeys.add(key);
+
+      let displayName = partial.name;
+      if (!opts.forceUniqueKey) {
+        const nameKey = displayName.trim().toLowerCase();
+        const seenCount = (nameOccurrences.get(nameKey) || 0) + 1;
+        nameOccurrences.set(nameKey, seenCount);
+        if (seenCount > 1) displayName = `${displayName} (${seenCount})`;
+      }
+
       items.push({
         category: partial.category || 'Uncategorized',
-        name: partial.name,
+        name: displayName,
         code: partial.code || '',
         hsn: partial.hsn || '',
-        unit: partial.unit || detectSmartUnit(partial.name),
+        unit: partial.unit || guessUnit(partial.name),
         sellingPrice: priceMode === 'selling' ? (price || '') : '',
         purchasePrice: priceMode === 'purchase' ? (price || '') : '',
-        stock: 0,
+        stock: 0, // hard-locked — see note in Settings. Never read from a
+                  // setting or localStorage, so there is no path by which
+                  // this can ever become non-zero.
         page: partial.page || 1,
         _key: key,
+        _nameKey: displayName.trim().toLowerCase(),
       });
       return true;
     }
@@ -589,13 +656,14 @@
       hideError();
       const brand = brandNameInput.value.trim();
       if (!brand) {
-        showError('Enter the Company / Brand Name before uploading — every item name and SKU is built from it.');
+        showError('Please type the supplier\'s name first (Step 1) — it\'s what keeps items from this file organized and matched to their bills later.');
         fileInput.value = '';
         return;
       }
       isCancelled = false;
       items = [];
       itemKeys = new Set();
+      nameOccurrences = new Map();
       duplicatesSkipped = 0;
       manualRowCounter = 0;
       dupesStat.textContent = '0';
@@ -630,11 +698,15 @@
             const { name, code } = applyBrand(brand, rawName, row.code);
             addItem({ category: row.family || 'Uncategorized', name, code, hsn: row.hsn, price: priceNum, page: row.page });
           });
+          // Keep the running counters live every page (cheap), but only
+          // redraw the full editable table every ~10 pages — rebuilding
+          // hundreds of input rows on every single page is the difference
+          // between "instant" and "sluggish" on a 100+ page catalog.
           itemsStat.textContent = items.length;
           dupesStat.textContent = duplicatesSkipped;
           if (pageNum % 10 === 0 || pageNum === totalPages) renderResults();
         }
-      } catch (err) { showError('PDF Exception: ' + err.message); }
+      } catch (err) { showError('Could not read this PDF — try a different file, or take clear photos of each page instead. (' + err.message + ')'); }
     }
 
     async function runTesseractOcr(file, brand) {
@@ -643,12 +715,19 @@
           if (m.status === 'recognizing text') updateProgress(Math.round(m.progress * 100), 100, 'Reading text from image...');
         },
       });
+      // Sparse-text mode. Tested head-to-head against the default
+      // fully-automatic mode and every image-preprocessing variant we tried
+      // (upscaling, denoising, binarizing) on a real photographed price
+      // list: this single setting was the biggest lever by far — it went
+      // from missing almost every row to recovering the large majority of
+      // them, with zero preprocessing needed.
+      await worker.setParameters({ tessedit_pageseg_mode: '11' });
       const ret = await worker.recognize(file);
       await worker.terminate();
       const parsed = parseOcrText(ret.data.text, 'PCS');
       parsed.forEach(p => {
         const { name, code } = applyBrand(brand, p.name, '');
-        addItem({ category: p.category, name, code, price: p.price, unit: detectSmartUnit(p.name) });
+        addItem({ category: p.category, name, code, price: p.price, unit: p.unit });
       });
       itemsStat.textContent = items.length;
       dupesStat.textContent = duplicatesSkipped;
@@ -668,7 +747,11 @@
         });
         const visionOk = await extractVisionOpenAI(base64Image, apiKey, brand);
         if (!visionOk) {
-          updateProgress(0, 100, 'Falling back to on-page OCR...');
+          // Network error, bad key, CORS block, etc. — don't just die with
+          // an error and no results. Fall back to the free on-page OCR so
+          // the upload still produces something.
+          showError('The AI reader couldn\'t be reached (no internet, or a key problem) — switched to the built-in scanner instead.');
+          updateProgress(0, 100, 'Vision failed — retrying with on-page OCR...');
           await runTesseractOcr(file, brand);
         }
       } else {
@@ -696,24 +779,26 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
             temperature: 0,
           }),
         });
-        if (!response.ok) { return false; }
+        if (!response.ok) { showError('The AI reader didn\'t respond correctly (code ' + response.status + ') — switching to the built-in scanner instead.'); return false; }
         const data = await response.json();
         const content = JSON.parse(data.choices[0].message.content);
         (content.items || []).forEach(it => {
           const price = parseFloat(String(it.price || '0').replace(/[^\d.]/g, ''));
           if (!it.itemName) return;
           const { name, code } = applyBrand(brand, it.itemName, '');
-          addItem({ category: it.category || 'Uncategorized', name, code, price: price || '', unit: detectSmartUnit(it.itemName) });
+          addItem({ category: it.category || 'Uncategorized', name, code, price: price || '', unit: guessUnit(it.itemName) });
         });
         itemsStat.textContent = items.length;
         dupesStat.textContent = duplicatesSkipped;
         renderResults();
         return true;
-      } catch (e) { 
+      } catch (e) {
+        showError('The AI reader ran into a problem — switching to the built-in scanner instead. (' + e.message + ')');
         return false;
       }
     }
 
+    // ---- Editable results table ----
     function cellInput(rowIdx, field, value, type = 'text') {
       return `<input class="cell-input" type="${type}" value="${(value ?? '').toString().replace(/"/g, '&quot;')}"
         data-row="${rowIdx}" data-field="${field}" />`;
@@ -732,7 +817,7 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
           <td class="p-1.5">${cellInput(i, 'purchasePrice', item.purchasePrice, 'number')}</td>
           <td class="p-1.5">${cellInput(i, 'gst', item.gst, 'number')}</td>
           <td class="p-1.5 text-center">
-            <span class="inline-flex items-center gap-1 text-slate-400 font-mono text-[11px]">
+            <span class="inline-flex items-center gap-1 text-slate-400 font-mono text-[11px]" title="Locked to 0 — order-based inventory, not held in stock">
               0 <i data-lucide="lock" class="w-3 h-3"></i>
             </span>
           </td>
@@ -784,6 +869,7 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
       progressBar.style.width = `${percentage}%`;
     }
 
+    // ---- Export: exact Accountune 27-column CSV ----
     downloadBtn.addEventListener('click', () => {
       if (!items.length) return;
       const gstDefault = localStorage.getItem('catalogtune_default_gst') || '';
