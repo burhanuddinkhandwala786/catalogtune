@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CatalogTune Engine — Accountune Bulk Import Generator</title>
+  <title>CatalogTune — Inventory Prep for Accountune (not a billing app)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,7 +28,10 @@
       <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <div class="flex items-center gap-2.5">
           <div class="h-8 w-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-sm">CT</div>
-          <span class="font-bold text-base text-slate-900 tracking-tight">CatalogTune Engine</span>
+          <div class="leading-tight">
+            <span class="font-bold text-base text-slate-900 tracking-tight block">CatalogTune</span>
+            <span class="text-[10px] text-slate-400 block -mt-0.5">Prepares inventory files for Accountune — not a billing app itself</span>
+          </div>
         </div>
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
@@ -118,8 +121,10 @@
             </div>
             <h2 class="text-base font-semibold text-slate-900 mb-1">Drop a PDF or photo here</h2>
             <p class="text-xs text-slate-500 max-w-md mb-6">
-              A PDF catalog or a phone photo of a printed rate card both work. After it's read, you get a
-              table you can check and fix before anything is exported — nothing goes to Accountune automatically.
+              A PDF catalog or a phone photo of a printed rate card both work well. Neat handwriting can work
+              too, especially with an AI key added in Settings — messy handwriting is the one thing worth
+              double-checking closely. Either way, you get a table to check and fix before anything is
+              exported — nothing goes to Accountune automatically.
             </p>
             <button class="bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs px-5 py-2.5 rounded-xl transition shadow-sm">Select File</button>
             <input type="file" id="file-input" accept="application/pdf,image/*" class="hidden">
@@ -145,6 +150,31 @@
           </div>
         </div>
 
+        <!-- Step 4: GST inclusive/exclusive -->
+        <div id="tax-step" class="mt-6 pt-6 border-t border-slate-100">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="h-5 w-5 rounded-full bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center shrink-0">4</span>
+            <label class="text-xs font-semibold text-slate-700">Does that price already include GST?</label>
+          </div>
+          <div class="grid grid-cols-3 gap-2 pl-7" id="tax-mode-group">
+            <button data-taxmode="yes" class="tax-mode-btn text-xs font-medium px-3 py-2.5 rounded-xl border border-slate-300 hover:border-slate-900 transition">
+              Yes, Included
+            </button>
+            <button data-taxmode="no" class="tax-mode-btn text-xs font-medium px-3 py-2.5 rounded-xl border border-slate-300 hover:border-slate-900 transition">
+              No, Extra
+            </button>
+            <button data-taxmode="unknown" class="tax-mode-btn text-xs font-medium px-3 py-2.5 rounded-xl border border-slate-300 hover:border-slate-900 transition">
+              Not Sure
+            </button>
+          </div>
+          <p id="tax-autodetect-note" class="hidden text-[11px] text-emerald-600 mt-1.5 pl-7"></p>
+          <p class="text-[11px] text-slate-400 mt-1.5 pl-7">
+            Pick "Not Sure" rather than guess — a wrong answer here means Accountune either charges tax
+            twice or forgets to add it at all, on every sale of that item. This is the one setting worth
+            getting right over getting done fast.
+          </p>
+        </div>
+
         <!-- Progress -->
         <div id="progress-container" class="hidden mt-6 pt-6 border-t border-slate-100 text-left space-y-3">
           <div class="flex justify-between items-center text-xs font-medium text-slate-600">
@@ -168,7 +198,12 @@
             <h3 class="font-semibold text-slate-900 text-sm">Your Items <span class="font-normal text-slate-400">(click any box to fix it)</span></h3>
             <p class="text-xs text-slate-500"><span id="count" class="font-bold text-slate-900">0</span> items ready for import</p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <input type="text" id="search-box" placeholder="Search items..."
+              class="text-xs px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900 transition w-40">
+            <button id="clear-all-btn" class="bg-white border border-slate-300 hover:border-rose-400 hover:text-rose-600 text-slate-700 font-medium text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i><span>Clear All</span>
+            </button>
             <button id="add-row-btn" class="bg-white border border-slate-300 hover:border-slate-900 text-slate-700 font-medium text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
               <i data-lucide="plus" class="w-3.5 h-3.5"></i><span>Add Row</span>
             </button>
@@ -176,6 +211,17 @@
               <i data-lucide="download" class="w-4 h-4"></i><span>Export Accountune CSV</span>
             </button>
           </div>
+        </div>
+        <!-- Bulk-apply bar: set one value across every currently visible row in one click,
+             instead of editing dozens of rows by hand for something like "set GST to 18% for
+             everything from this supplier." -->
+        <div class="px-6 py-3 bg-slate-50/70 border-b border-slate-100 flex items-center gap-2 flex-wrap text-xs">
+          <span class="text-slate-500 font-medium">Apply to all visible rows:</span>
+          <input type="text" id="bulk-category" placeholder="Category" class="px-2.5 py-1.5 rounded-lg border border-slate-300 w-28 focus:outline-none focus:ring-2 focus:ring-slate-900">
+          <input type="text" id="bulk-unit" placeholder="Unit" class="px-2.5 py-1.5 rounded-lg border border-slate-300 w-20 focus:outline-none focus:ring-2 focus:ring-slate-900">
+          <input type="number" id="bulk-gst" placeholder="GST %" class="px-2.5 py-1.5 rounded-lg border border-slate-300 w-20 focus:outline-none focus:ring-2 focus:ring-slate-900">
+          <button id="bulk-apply-btn" class="bg-slate-900 hover:bg-slate-800 text-white font-medium px-3 py-1.5 rounded-lg transition">Apply</button>
+          <span class="text-slate-400">— leave a box empty to skip it</span>
         </div>
         <div class="overflow-x-auto max-h-[520px] custom-scrollbar">
           <table class="w-full text-left border-collapse text-xs">
@@ -196,12 +242,16 @@
             <tbody id="table-body" class="divide-y divide-slate-100 text-slate-700"></tbody>
           </table>
         </div>
+        <div class="px-6 py-3 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 flex-wrap gap-2">
+          <span>Files processed this session: <b id="files-stat" class="text-slate-800">0</b></span>
+          <span>Total value (visible rows): <b id="total-value-stat" class="text-slate-800">₹0</b></span>
+        </div>
       </div>
     </main>
   </div>
 
   <footer class="py-5 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white">
-    CatalogTune — ready-to-import file for Accountune, in their exact format
+    CatalogTune only prepares an import file — it doesn't send anything, store your data, or handle billing, payments, or customers.
   </footer>
 
   <script>
@@ -240,6 +290,17 @@
       rec['Item Code'] = row.code || '';
       rec['Default Selling Price Per Primary Unit'] = row.sellingPrice || '';
       rec['Default Purchase Price Per Primary Unit'] = row.purchasePrice || '';
+      // Whether the price already includes GST. Left BLANK unless you told
+      // us — never guessed — because a wrong answer here means Accountune
+      // either double-charges tax on top of an already-tax-inclusive price,
+      // or under-charges by treating a tax-exclusive price as final. Both
+      // are real compliance problems, not just display bugs.
+      if (row.sellingPrice && (row.taxIncluded === 'yes' || row.taxIncluded === 'no')) {
+        rec['Primary Price Including Tax'] = row.taxIncluded === 'yes' ? 'Yes' : 'No';
+      }
+      if (row.purchasePrice && (row.taxIncluded === 'yes' || row.taxIncluded === 'no')) {
+        rec['Primary Purchase Price Including Tax'] = row.taxIncluded === 'yes' ? 'Yes' : 'No';
+      }
       rec['Default Unit for Purchase'] = 'primary';
       rec['Default Unit for Sales'] = 'primary';
       rec['Opening Quantity'] = 0; // hard-locked, ignores whatever is on the row
@@ -495,6 +556,14 @@
     const countSpan = document.getElementById('count');
     const downloadBtn = document.getElementById('download-btn');
     const addRowBtn = document.getElementById('add-row-btn');
+    const clearAllBtn = document.getElementById('clear-all-btn');
+    const searchBox = document.getElementById('search-box');
+    const filesStat = document.getElementById('files-stat');
+    const totalValueStat = document.getElementById('total-value-stat');
+    const bulkApplyBtn = document.getElementById('bulk-apply-btn');
+    const bulkCategoryInput = document.getElementById('bulk-category');
+    const bulkUnitInput = document.getElementById('bulk-unit');
+    const bulkGstInput = document.getElementById('bulk-gst');
     const errorBox = document.getElementById('error-box');
     const errorMessage = document.getElementById('error-message');
     const priceModeGroup = document.getElementById('price-mode-group');
@@ -506,6 +575,33 @@
     let manualRowCounter = 0;
     let isCancelled = false;
     let priceMode = 'selling'; // 'selling' | 'purchase' | 'none'
+    let taxMode = 'unknown'; // 'yes' | 'no' | 'unknown'
+    let taxModeManuallySet = false; // once the user picks one, auto-detect stops overriding it
+
+    // Looks for the document explicitly stating its own tax convention
+    // (e.g. Godrej's own price lists literally print "MRP R (Inc. of all
+    // taxes)" in the column header). Only used to PRE-select an answer for
+    // you to confirm — never applied silently, and never overrides a
+    // choice you already made yourself.
+    function detectTaxInclusive(text) {
+      // Tolerant of both "Inc." and "Incl." abbreviations — real supplier
+      // documents use both (Godrej's own price list literally prints
+      // "MRP R (Inc. of all taxes)", not "Incl."), so requiring the 'l'
+      // would silently miss the exact real-world case this exists for.
+      if (/\bincl?\.?\s*(usive)?\s*(of)?\s*(all\s*)?tax(es)?\b|including\s*gst|tax\s*included/i.test(text)) return 'yes';
+      if (/\bexcl?\.?\s*(usive)?\s*(of)?\s*tax\b|tax\s*extra|gst\s*extra|\+\s*gst\b|plus\s*gst/i.test(text)) return 'no';
+      return null;
+    }
+
+    function maybeAutoSetTaxMode(detected) {
+      if (!detected || taxModeManuallySet) return;
+      setTaxMode(detected);
+      const note = document.getElementById('tax-autodetect-note');
+      note.textContent = detected === 'yes'
+        ? 'Detected "inclusive of tax" wording in the document — pre-selected "Yes". Please confirm.'
+        : 'Detected "exclusive of tax" wording in the document — pre-selected "No". Please confirm.';
+      note.classList.remove('hidden');
+    }
 
     function dedupKey(code, name, price) {
       const c = (code || '').toString().trim().toLowerCase();
@@ -571,6 +667,7 @@
       if (savedKey) { apiKeyInput.value = savedKey; keyIndicator.classList.remove('hidden'); }
       if (savedGst) gstSetting.value = savedGst;
       setPriceMode('selling');
+      setTaxMode('unknown');
     });
 
     openSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
@@ -596,6 +693,25 @@
     priceModeGroup.addEventListener('click', (e) => {
       const btn = e.target.closest('.price-mode-btn');
       if (btn) setPriceMode(btn.dataset.mode);
+    });
+
+    function setTaxMode(mode) {
+      taxMode = mode;
+      document.querySelectorAll('.tax-mode-btn').forEach(btn => {
+        const active = btn.dataset.taxmode === mode;
+        btn.classList.toggle('border-slate-900', active);
+        btn.classList.toggle('bg-slate-900', active);
+        btn.classList.toggle('text-white', active);
+        btn.classList.toggle('border-slate-300', !active);
+      });
+    }
+    const taxModeGroup = document.getElementById('tax-mode-group');
+    taxModeGroup.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tax-mode-btn');
+      if (!btn) return;
+      taxModeManuallySet = true;
+      document.getElementById('tax-autodetect-note').classList.add('hidden');
+      setTaxMode(btn.dataset.taxmode);
     });
 
     dropArea.addEventListener('click', () => fileInput.click());
@@ -642,6 +758,9 @@
         unit: partial.unit || guessUnit(partial.name),
         sellingPrice: priceMode === 'selling' ? (price || '') : '',
         purchasePrice: priceMode === 'purchase' ? (price || '') : '',
+        taxIncluded: taxMode, // 'yes' | 'no' | 'unknown' — captured at add-time so a
+                               // later change to the Step 4 toggle doesn't retroactively
+                               // relabel rows already added under a different answer
         stock: 0, // hard-locked — see note in Settings. Never read from a
                   // setting or localStorage, so there is no path by which
                   // this can ever become non-zero.
@@ -661,19 +780,23 @@
         return;
       }
       isCancelled = false;
-      items = [];
-      itemKeys = new Set();
-      nameOccurrences = new Map();
-      duplicatesSkipped = 0;
-      manualRowCounter = 0;
-      dupesStat.textContent = '0';
-      tableBody.innerHTML = '';
-      resultsCard.classList.add('hidden');
+      // NOTE: items/itemKeys/nameOccurrences/duplicatesSkipped are NOT reset
+      // here on purpose. A real business owner working through a stack of
+      // supplier lists in one sitting shouldn't have to export after every
+      // single upload — files accumulate into one growing list (with
+      // dedup/variant handling still applying across all of them), and the
+      // "Clear All" button is the only thing that starts over.
+      dupesStat.textContent = duplicatesSkipped;
+      resultsCard.classList.remove('hidden');
       progressContainer.classList.remove('hidden');
       cancelBtn.classList.remove('hidden');
+      taxModeManuallySet = false; // each new file gets its own auto-detect check
+      document.getElementById('tax-autodetect-note').classList.add('hidden');
       if (file.type === 'application/pdf') await processPdfSpatial(file, brand);
       else await processImageFile(file, brand);
+      filesProcessed++;
       finishProcessing();
+      fileInput.value = ''; // lets the same filename be re-selected if needed
     }
 
     async function processPdfSpatial(file, brand) {
@@ -689,6 +812,12 @@
           const tc = await page.getTextContent();
           const pageItems = normalizeItems(tc);
           if (!pageItems.length) continue;
+          if (pageNum === 1) {
+            // Only need to check once — a price list states its tax
+            // convention once (usually right in the column header), not
+            // per page.
+            maybeAutoSetTaxMode(detectTaxInclusive(pageItems.map(it => it.text).join(' ')));
+          }
           const rows = parsePageItems(pageItems, pageNum);
           rows.forEach(row => {
             const priceNum = parseInt(row.mrp, 10);
@@ -710,22 +839,35 @@
     }
 
     async function runTesseractOcr(file, brand) {
-      const worker = await Tesseract.createWorker('eng', 1, {
-        logger: m => {
-          if (m.status === 'recognizing text') updateProgress(Math.round(m.progress * 100), 100, 'Reading text from image...');
-        },
-      });
-      // Sparse-text mode. Tested head-to-head against the default
-      // fully-automatic mode and every image-preprocessing variant we tried
-      // (upscaling, denoising, binarizing) on a real photographed price
-      // list: this single setting was the biggest lever by far — it went
-      // from missing almost every row to recovering the large majority of
-      // them, with zero preprocessing needed.
-      await worker.setParameters({ tessedit_pageseg_mode: '11' });
-      const ret = await worker.recognize(file);
-      await worker.terminate();
-      const parsed = parseOcrText(ret.data.text, 'PCS');
-      parsed.forEach(p => {
+      // Different photos favor different Tesseract page-segmentation modes
+      // depending on layout, print quality, and glare — there's no single
+      // setting that's always best. Rather than betting the whole result
+      // on one fixed mode, try sparse-text first (the strongest performer
+      // in testing on a real dense photographed table), and only pay the
+      // cost of a second pass if that one looks like it under-read the
+      // page — then keep whichever pass actually found more rows.
+      async function attempt(psm, label) {
+        updateProgress(0, 100, label);
+        const worker = await Tesseract.createWorker('eng', 1, {
+          logger: m => {
+            if (m.status === 'recognizing text') updateProgress(Math.round(m.progress * 100), 100, label);
+          },
+        });
+        await worker.setParameters({ tessedit_pageseg_mode: psm });
+        const ret = await worker.recognize(file);
+        await worker.terminate();
+        const parsed = parseOcrText(ret.data.text, 'PCS');
+        return { text: ret.data.text, parsed };
+      }
+
+      let best = await attempt('11', 'Reading text from image...');
+      if (best.parsed.length < 3) {
+        const fallback = await attempt('6', 'First pass found little — trying again...');
+        if (fallback.parsed.length > best.parsed.length) best = fallback;
+      }
+
+      maybeAutoSetTaxMode(detectTaxInclusive(best.text));
+      best.parsed.forEach(p => {
         const { name, code } = applyBrand(brand, p.name, '');
         addItem({ category: p.category, name, code, price: p.price, unit: p.unit });
       });
@@ -763,8 +905,11 @@
       const prompt = `Extract every product/particular line from this price list image, including its price.
 Some rows are grouped under a bold category header (e.g. "AMULYA 1MM") that applies to several rows below it —
 include that category text as part of "category" for each row under it, and include any sub-label
-(e.g. "SF/MF/DL", "HGF", "TEXTURE - ...") as part of "itemName". Ignore footer notes/disclaimers/terms.
-Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...", "price": 123}]}`;
+(e.g. "SF/MF/DL", "HGF", "TEXTURE - ...") as part of "itemName". Ignore footer notes/disclaimers/terms when
+building item rows, but separately check: does the document say anywhere whether these prices include tax/GST
+or not (e.g. "inclusive of all taxes", "+ GST extra", "exclusive of tax")? Report that in "taxNote" as the
+exact phrase you found, or "" if nothing like that appears anywhere on the page.
+Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...", "price": 123}], "taxNote": "..."}`;
       try {
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -782,6 +927,7 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
         if (!response.ok) { showError('The AI reader didn\'t respond correctly (code ' + response.status + ') — switching to the built-in scanner instead.'); return false; }
         const data = await response.json();
         const content = JSON.parse(data.choices[0].message.content);
+        maybeAutoSetTaxMode(detectTaxInclusive(content.taxNote || ''));
         (content.items || []).forEach(it => {
           const price = parseFloat(String(it.price || '0').replace(/[^\d.]/g, ''));
           if (!it.itemName) return;
@@ -804,9 +950,24 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
         data-row="${rowIdx}" data-field="${field}" />`;
     }
 
+    let filesProcessed = 0;
+
+    function getVisibleIndices() {
+      const q = (searchBox.value || '').trim().toLowerCase();
+      const all = items.map((_, i) => i);
+      if (!q) return all;
+      return all.filter(i => {
+        const it = items[i];
+        return [it.category, it.name, it.code, it.hsn].some(v => (v || '').toLowerCase().includes(q));
+      });
+    }
+
     function renderResults() {
       countSpan.textContent = items.length;
-      tableBody.innerHTML = items.map((item, i) => `
+      const visible = getVisibleIndices();
+      tableBody.innerHTML = visible.map(i => {
+        const item = items[i];
+        return `
         <tr class="hover:bg-slate-50 transition">
           <td class="p-1.5">${cellInput(i, 'category', item.category)}</td>
           <td class="p-1.5">${cellInput(i, 'name', item.name)}</td>
@@ -827,9 +988,18 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
             </button>
           </td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
       lucide.createIcons();
       resultsCard.classList.remove('hidden');
+
+      filesStat.textContent = filesProcessed;
+      const totalValue = visible.reduce((sum, i) => {
+        const it = items[i];
+        const p = parseFloat(it.sellingPrice) || parseFloat(it.purchasePrice) || 0;
+        return sum + p;
+      }, 0);
+      totalValueStat.textContent = '₹' + Math.round(totalValue).toLocaleString('en-IN');
     }
 
     tableBody.addEventListener('input', (e) => {
@@ -851,6 +1021,37 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
 
     addRowBtn.addEventListener('click', () => {
       addItem({ category: 'Uncategorized', name: 'New Item', price: '' }, { forceUniqueKey: true });
+      renderResults();
+    });
+
+    clearAllBtn.addEventListener('click', () => {
+      if (items.length && !confirm(`Clear all ${items.length} items and start over? This can't be undone.`)) return;
+      items = [];
+      itemKeys = new Set();
+      nameOccurrences = new Map();
+      duplicatesSkipped = 0;
+      manualRowCounter = 0;
+      filesProcessed = 0;
+      dupesStat.textContent = '0';
+      searchBox.value = '';
+      renderResults();
+      resultsCard.classList.add('hidden');
+    });
+
+    searchBox.addEventListener('input', () => renderResults());
+
+    bulkApplyBtn.addEventListener('click', () => {
+      const visible = getVisibleIndices();
+      const cat = bulkCategoryInput.value.trim();
+      const unit = bulkUnitInput.value.trim();
+      const gst = bulkGstInput.value.trim();
+      if (!cat && !unit && !gst) return;
+      visible.forEach(i => {
+        if (cat) items[i].category = cat;
+        if (unit) items[i].unit = unit;
+        if (gst) items[i].gst = gst;
+      });
+      bulkCategoryInput.value = ''; bulkUnitInput.value = ''; bulkGstInput.value = '';
       renderResults();
     });
 
