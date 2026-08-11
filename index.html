@@ -237,6 +237,10 @@
 
             <input type="text" id="search-box" placeholder="Search items..."
               class="text-xs px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900 transition w-40">
+            <button id="delete-dupes-btn" class="bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 font-medium text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-500"></i>
+              <span>Delete All Duplicates</span>
+            </button>
             <button id="clear-all-btn" class="bg-white border border-slate-300 hover:border-rose-400 hover:text-rose-600 text-slate-700 font-medium text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
               <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i><span>Clear All</span>
             </button>
@@ -585,7 +589,7 @@
     let priceMode = 'selling';
     let taxMode = 'unknown';
     let taxModeManuallySet = false;
-    let currentFilter = 'all'; // 'all' | 'dupes' | 'new'
+    let currentFilter = 'all';
 
     function detectTaxInclusive(text) {
       if (/\bincl?\.?\s*(usive)?\s*(of)?\s*(all\s*)?tax(es)?\b|including\s*gst|tax\s*included/i.test(text)) return 'yes';
@@ -1167,6 +1171,20 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
       const row = parseInt(btn.dataset.row, 10);
       if (items[row] && items[row]._key) itemKeys.delete(items[row]._key);
       items.splice(row, 1);
+      invalidateReviewConfirmation();
+      renderResults();
+    });
+
+    // Delete All Duplicates Action
+    document.getElementById('delete-dupes-btn').addEventListener('click', () => {
+      const dupeCount = items.filter(it => it.existingMatch).length;
+      if (!dupeCount) return alert('No duplicate items found to delete!');
+      if (!confirm(`Delete all ${dupeCount} duplicate items from the list?`)) return;
+
+      // Keep only non-duplicate items
+      items = items.filter(it => !it.existingMatch);
+      itemKeys = new Set(items.map(it => it._key));
+
       invalidateReviewConfirmation();
       renderResults();
     });
