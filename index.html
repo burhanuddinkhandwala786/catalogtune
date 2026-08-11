@@ -228,6 +228,13 @@
             </p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
+            <!-- Filter Tabs -->
+            <div class="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-0.5 text-xs font-medium">
+              <button id="filter-all-btn" class="filter-tab-btn rounded-lg px-3 py-1 bg-white text-slate-900 shadow-sm transition">All (<span id="tab-count-all">0</span>)</button>
+              <button id="filter-dupes-btn" class="filter-tab-btn rounded-lg px-3 py-1 text-slate-600 hover:text-slate-900 transition">Duplicates (<span id="tab-count-dupes">0</span>)</button>
+              <button id="filter-new-btn" class="filter-tab-btn rounded-lg px-3 py-1 text-slate-600 hover:text-slate-900 transition">New Only (<span id="tab-count-new">0</span>)</button>
+            </div>
+
             <input type="text" id="search-box" placeholder="Search items..."
               class="text-xs px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900 transition w-40">
             <button id="clear-all-btn" class="bg-white border border-slate-300 hover:border-rose-400 hover:text-rose-600 text-slate-700 font-medium text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
@@ -251,7 +258,7 @@
           <table class="w-full text-left border-collapse text-xs">
             <thead class="sticky top-0 bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider z-10">
               <tr>
-                <th class="p-3 min-w-[80px]">Category</th>
+                <th class="p-3 min-w-[110px]">Category</th>
                 <th class="p-3 min-w-[260px]">Item Name</th>
                 <th class="p-3 min-w-[90px]">Item Code</th>
                 <th class="p-3 min-w-[90px]">HSN Code</th>
@@ -578,6 +585,7 @@
     let priceMode = 'selling';
     let taxMode = 'unknown';
     let taxModeManuallySet = false;
+    let currentFilter = 'all'; // 'all' | 'dupes' | 'new'
 
     function detectTaxInclusive(text) {
       if (/\bincl?\.?\s*(usive)?\s*(of)?\s*(all\s*)?tax(es)?\b|including\s*gst|tax\s*included/i.test(text)) return 'yes';
@@ -722,58 +730,56 @@
     }
 
     async function loadExistingInventory(file) {
-  const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: 'array' });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
 
-  // Read as raw 2D array to bypass top title/metadata rows
-  const rows2D = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-  existingCodes = new Set();
-  existingNames = new Set();
-  let loaded = 0;
+      const rows2D = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      existingCodes = new Set();
+      existingNames = new Set();
+      let loaded = 0;
 
-  // Find the exact row containing the "Name" header
-  let headerRowIdx = -1;
-  for (let i = 0; i < rows2D.length; i++) {
-    const row = rows2D[i];
-    if (Array.isArray(row) && row.some(cell => String(cell).trim().toLowerCase() === 'name')) {
-      headerRowIdx = i;
-      break;
+      let headerRowIdx = -1;
+      for (let i = 0; i < rows2D.length; i++) {
+        const row = rows2D[i];
+        if (Array.isArray(row) && row.some(cell => String(cell).trim().toLowerCase() === 'name')) {
+          headerRowIdx = i;
+          break;
+        }
+      }
+
+      if (headerRowIdx === -1) {
+        throw new Error('Could not find "Name" column header in the uploaded file.');
+      }
+
+      const headerRow = rows2D[headerRowIdx].map(cell => String(cell).trim());
+      const nameColIdx = headerRow.findIndex(h => h.toLowerCase() === 'name');
+      const codeColIdx = headerRow.findIndex(h => /^(item\s*code|sku|code)$/i.test(h));
+
+      for (let i = headerRowIdx + 1; i < rows2D.length; i++) {
+        const row = rows2D[i];
+        if (!row || nameColIdx === -1 || !row[nameColIdx]) continue;
+
+        const nameStr = String(row[nameColIdx]).trim();
+        if (!nameStr || nameStr.toLowerCase() === 'name') continue;
+
+        const bracketCode = extractBracketCode(nameStr);
+        if (bracketCode) existingCodes.add(bracketCode);
+
+        if (codeColIdx !== -1 && row[codeColIdx]) {
+          const cVal = String(row[codeColIdx]).trim().toLowerCase();
+          if (cVal) existingCodes.add(cVal);
+        }
+
+        const normName = normalizeNameForMatch(nameStr);
+        if (normName) {
+          existingNames.add(normName);
+          loaded++;
+        }
+      }
+
+      return loaded;
     }
-  }
-
-  if (headerRowIdx === -1) {
-    throw new Error('Could not find "Name" column header in the uploaded file.');
-  }
-
-  const headerRow = rows2D[headerRowIdx].map(cell => String(cell).trim());
-  const nameColIdx = headerRow.findIndex(h => h.toLowerCase() === 'name');
-  const codeColIdx = headerRow.findIndex(h => /^(item\s*code|sku|code)$/i.test(h));
-
-  for (let i = headerRowIdx + 1; i < rows2D.length; i++) {
-    const row = rows2D[i];
-    if (!row || nameColIdx === -1 || !row[nameColIdx]) continue;
-
-    const nameStr = String(row[nameColIdx]).trim();
-    if (!nameStr || nameStr.toLowerCase() === 'name') continue;
-
-    const bracketCode = extractBracketCode(nameStr);
-    if (bracketCode) existingCodes.add(bracketCode);
-
-    if (codeColIdx !== -1 && row[codeColIdx]) {
-      const cVal = String(row[codeColIdx]).trim().toLowerCase();
-      if (cVal) existingCodes.add(cVal);
-    }
-
-    const normName = normalizeNameForMatch(nameStr);
-    if (normName) {
-      existingNames.add(normName);
-      loaded++;
-    }
-  }
-
-  return loaded;
-}
 
     function checkExistingMatch(name, code) {
       const bracketCode = extractBracketCode(name);
@@ -1049,34 +1055,69 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
 
     let filesProcessed = 0;
 
+    // Filter Button Wiring
+    document.getElementById('filter-all-btn').addEventListener('click', () => setFilter('all'));
+    document.getElementById('filter-dupes-btn').addEventListener('click', () => setFilter('dupes'));
+    document.getElementById('filter-new-btn').addEventListener('click', () => setFilter('new'));
+
+    function setFilter(filterMode) {
+      currentFilter = filterMode;
+      document.querySelectorAll('.filter-tab-btn').forEach(btn => {
+        btn.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+        btn.classList.add('text-slate-600');
+      });
+      
+      if (filterMode === 'all') document.getElementById('filter-all-btn').classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+      if (filterMode === 'dupes') document.getElementById('filter-dupes-btn').classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+      if (filterMode === 'new') document.getElementById('filter-new-btn').classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+      
+      renderResults();
+    }
+
     function getVisibleIndices() {
       const q = (searchBox.value || '').trim().toLowerCase();
-      const all = items.map((_, i) => i);
-      if (!q) return all;
-      return all.filter(i => {
+      
+      return items.map((_, i) => i).filter(i => {
         const it = items[i];
-        return [it.category, it.name, it.code, it.hsn].some(v => (v || '').toLowerCase().includes(q));
+        
+        // Filter Tabs Logic
+        if (currentFilter === 'dupes' && !it.existingMatch) return false;
+        if (currentFilter === 'new' && it.existingMatch) return false;
+        
+        // Search Filter Logic
+        if (q) {
+          return [it.category, it.name, it.code, it.hsn].some(v => (v || '').toLowerCase().includes(q));
+        }
+        return true;
       });
     }
 
     function renderResults() {
       countSpan.textContent = items.length;
       const flaggedCount = items.filter(it => it.existingMatch).length;
+      const newCount = items.length - flaggedCount;
+      
+      // Update Tab Counts
+      document.getElementById('tab-count-all').textContent = items.length;
+      document.getElementById('tab-count-dupes').textContent = flaggedCount;
+      document.getElementById('tab-count-new').textContent = newCount;
+
       const flaggedEl = document.getElementById('flagged-count');
       if (flaggedCount > 0) {
-        flaggedEl.textContent = ` — ${flaggedCount} flagged as possible duplicates of existing items`;
+        flaggedEl.textContent = ` — ${flaggedCount} flagged as duplicates, ${newCount} new items`;
         flaggedEl.classList.remove('hidden');
       } else {
         flaggedEl.classList.add('hidden');
       }
+
       const visible = getVisibleIndices();
       tableBody.innerHTML = visible.map(i => {
         const item = items[i];
         const flagged = item.existingMatch;
         return `
-        <tr class="hover:bg-slate-50 transition ${flagged ? 'bg-amber-50/70' : ''}">
+        <tr class="transition ${flagged ? 'bg-rose-50/80 border-l-4 border-rose-500' : 'hover:bg-slate-50'}">
           <td class="p-1.5 relative">
-            ${flagged ? `<span class="absolute -left-0.5 top-1/2 -translate-y-1/2 -translate-x-full pr-1" title="Looks like this may already be in your current inventory"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-500"></i></span>` : ''}
+            ${flagged ? `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded mr-1" title="Already in Accountune inventory">EXISTS</span>` : ''}
             ${cellInput(i, 'category', item.category)}
           </td>
           <td class="p-1.5">${cellInput(i, 'name', item.name)}</td>
