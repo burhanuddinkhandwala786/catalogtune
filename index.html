@@ -722,27 +722,61 @@
     }
 
     async function loadExistingInventory(file) {
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: 'array' });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-      existingCodes = new Set();
-      existingNames = new Set();
-      let loaded = 0;
-      rows.forEach(r => {
-        const keys = Object.keys(r);
-        const nameKey = keys.find(k => /^name$/i.test(k)) || keys.find(k => /name/i.test(k));
-        const codeKey = keys.find(k => /^(item\s*code|sku|code)$/i.test(k));
-        const name = nameKey ? String(r[nameKey]) : '';
-        if (!name.trim()) return;
-        const bracketCode = extractBracketCode(name);
-        if (bracketCode) existingCodes.add(bracketCode);
-        if (codeKey && r[codeKey]) existingCodes.add(String(r[codeKey]).trim().toLowerCase());
-        existingNames.add(normalizeNameForMatch(name));
-        loaded++;
-      });
-      return loaded;
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array' });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+
+  // Read as a raw 2D array to bypass top metadata/title rows
+  const rows2D = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+  existingCodes = new Set();
+  existingNames = new Set();
+  let loaded = 0;
+
+  // Find the row that actually contains the "Name" column header
+  let headerRowIdx = -1;
+  for (let i = 0; i < rows2D.length; i++) {
+    const row = rows2D[i];
+    if (Array.isArray(row) && row.some(cell => String(cell).trim().toLowerCase() === 'name')) {
+      headerRowIdx = i;
+      break;
     }
+  }
+
+  if (headerRowIdx === -1) {
+    throw new Error('Could not find "Name" column header in the uploaded file.');
+  }
+
+  const headerRow = rows2D[headerRowIdx].map(cell => String(cell).trim());
+  const nameColIdx = headerRow.findIndex(h => h.toLowerCase() === 'name');
+  const codeColIdx = headerRow.findIndex(h => /^(item\s*code|sku|code)$/i.test(h));
+
+  for (let i = headerRowIdx + 1; i < rows2D.length; i++) {
+    const row = rows2D[i];
+    if (!row || nameColIdx === -1 || !row[nameColIdx]) continue;
+
+    const nameStr = String(row[nameColIdx]).trim();
+    if (!nameStr || nameStr.toLowerCase() === 'name') continue;
+
+    // Extract any embedded bracket code like [5105] if present
+    const bracketCode = extractBracketCode(nameStr);
+    if (bracketCode) existingCodes.add(bracketCode);
+
+    // Extract dedicated code column if present
+    if (codeColIdx !== -1 && row[codeColIdx]) {
+      const cVal = String(row[codeColIdx]).trim().toLowerCase();
+      if (cVal) existingCodes.add(cVal);
+    }
+
+    // Normalize name (strips brackets, normalizes spaces and casing)
+    const normName = normalizeNameForMatch(nameStr);
+    if (normName) {
+      existingNames.add(normName);
+      loaded++;
+    }
+  }
+
+  return loaded;
+}
 
     function checkExistingMatch(name, code) {
       const bracketCode = extractBracketCode(name);
