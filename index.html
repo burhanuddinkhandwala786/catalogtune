@@ -72,11 +72,19 @@
             <p class="text-[11px] text-slate-400 mt-1">Leave this blank unless you're sure — a wrong tax rate is worse than none.</p>
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">AI Reader Key (optional, for messy photos)</label>
-            <input type="password" id="api-key" placeholder="sk-proj-..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition">
+            <label class="block text-xs font-medium text-slate-700 mb-1">AI Reader (optional, for messy photos)</label>
+            <select id="vision-provider" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 transition mb-2">
+              <option value="none">Off — use the built-in scanner only (free, no key needed)</option>
+              <option value="gemini">Google Gemini (free tier — no card needed for typical shop use)</option>
+              <option value="openai">OpenAI</option>
+            </select>
+            <input type="password" id="api-key-gemini" placeholder="Gemini API key (from Google AI Studio)" class="hidden w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition mb-1">
+            <input type="password" id="api-key-openai" placeholder="OpenAI API key (sk-proj-...)" class="hidden w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition mb-1">
             <p class="text-[11px] text-slate-400 mt-1">
-              Not required — the built-in scanner works without it. Add an OpenAI key here only if you want
-              sharper reading on a hard-to-read photo. Stays in this browser only.
+              Not required — the built-in scanner works without it and never leaves your browser. An AI
+              reader helps most on handwriting or a badly lit photo. Whichever key you use stays saved in
+              this browser only, but is sent to that provider's servers on each image — for a free-tier key,
+              check their current terms on whether they may retain that data.
             </p>
           </div>
           <button id="save-key-btn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm py-2.5 rounded-xl transition shadow-sm">Save</button>
@@ -88,6 +96,10 @@
       <div id="error-box" class="hidden mb-6 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-xs font-medium flex items-center justify-between">
         <div class="flex items-center gap-2"><i data-lucide="alert-circle" class="w-4 h-4 shrink-0 text-rose-500"></i><span id="error-message">Extraction Error.</span></div>
         <button onclick="hideError()" class="text-rose-500 hover:text-rose-800">Dismiss</button>
+      </div>
+      <div id="notice-box" class="hidden mb-6 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl text-xs font-medium flex items-center justify-between">
+        <div class="flex items-center gap-2"><i data-lucide="info" class="w-4 h-4 shrink-0 text-blue-500"></i><span id="notice-message"></span></div>
+        <button onclick="hideNotice()" class="text-blue-500 hover:text-blue-800">Dismiss</button>
       </div>
 
       <!-- Upload Card -->
@@ -207,9 +219,6 @@
             <button id="add-row-btn" class="bg-white border border-slate-300 hover:border-slate-900 text-slate-700 font-medium text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
               <i data-lucide="plus" class="w-3.5 h-3.5"></i><span>Add Row</span>
             </button>
-            <button id="download-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5">
-              <i data-lucide="download" class="w-4 h-4"></i><span>Export Accountune CSV</span>
-            </button>
           </div>
         </div>
         <!-- Bulk-apply bar: set one value across every currently visible row in one click,
@@ -245,6 +254,22 @@
         <div class="px-6 py-3 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 flex-wrap gap-2">
           <span>Files processed this session: <b id="files-stat" class="text-slate-800">0</b></span>
           <span>Total value (visible rows): <b id="total-value-stat" class="text-slate-800">₹0</b></span>
+        </div>
+        <!-- This is the actual safeguard, not a marketing claim: nothing exports
+             until a human explicitly confirms they looked at the data. Any edit,
+             new upload, or added row un-checks this automatically — a stale
+             confirmation can never silently cover data that changed after it. -->
+        <div class="px-6 py-4 border-t border-slate-200 bg-amber-50/60 flex items-center justify-between flex-wrap gap-3">
+          <label class="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer max-w-2xl">
+            <input type="checkbox" id="review-confirm-checkbox" class="mt-0.5 h-4 w-4 rounded border-slate-400 accent-slate-900">
+            <span>
+              I've looked through the items above — names, prices, and GST setting — and they're correct.
+              <span class="block text-slate-500 mt-0.5">This scan came from OCR/AI reading, which can misread a digit or a line; this box exists so that check actually happens before anything leaves this tool.</span>
+            </span>
+          </label>
+          <button id="download-btn" disabled class="bg-slate-300 text-white font-medium text-xs px-4 py-2.5 rounded-xl shadow-sm flex items-center gap-1.5 cursor-not-allowed transition shrink-0">
+            <i data-lucide="download" class="w-4 h-4"></i><span>Export Accountune CSV</span>
+          </button>
         </div>
       </div>
     </main>
@@ -534,7 +559,9 @@
     // =========================================================================
     // APP STATE + WIRING
     // =========================================================================
-    const apiKeyInput = document.getElementById('api-key');
+    const apiKeyGeminiInput = document.getElementById('api-key-gemini');
+    const apiKeyOpenaiInput = document.getElementById('api-key-openai');
+    const visionProviderSelect = document.getElementById('vision-provider');
     const gstSetting = document.getElementById('gst-setting');
     const saveKeyBtn = document.getElementById('save-key-btn');
     const keyIndicator = document.getElementById('key-indicator');
@@ -555,6 +582,26 @@
     const tableBody = document.getElementById('table-body');
     const countSpan = document.getElementById('count');
     const downloadBtn = document.getElementById('download-btn');
+    const reviewCheckbox = document.getElementById('review-confirm-checkbox');
+
+    function updateExportGate() {
+      const confirmed = reviewCheckbox.checked;
+      downloadBtn.disabled = !confirmed;
+      downloadBtn.classList.toggle('bg-slate-300', !confirmed);
+      downloadBtn.classList.toggle('cursor-not-allowed', !confirmed);
+      downloadBtn.classList.toggle('bg-emerald-600', confirmed);
+      downloadBtn.classList.toggle('hover:bg-emerald-500', confirmed);
+      downloadBtn.classList.toggle('cursor-pointer', confirmed);
+    }
+    reviewCheckbox.addEventListener('change', updateExportGate);
+
+    // Any change to the underlying data un-checks the review box — a
+    // confirmation given before an edit/new upload must not silently
+    // cover data that changed after it.
+    function invalidateReviewConfirmation() {
+      reviewCheckbox.checked = false;
+      updateExportGate();
+    }
     const addRowBtn = document.getElementById('add-row-btn');
     const clearAllBtn = document.getElementById('clear-all-btn');
     const searchBox = document.getElementById('search-box');
@@ -662,21 +709,40 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      const savedKey = localStorage.getItem('catalogtune_openai_key');
+      const savedProvider = localStorage.getItem('catalogtune_vision_provider') || 'none';
+      const savedGeminiKey = localStorage.getItem('catalogtune_gemini_key');
+      const savedOpenaiKey = localStorage.getItem('catalogtune_openai_key');
       const savedGst = localStorage.getItem('catalogtune_default_gst');
-      if (savedKey) { apiKeyInput.value = savedKey; keyIndicator.classList.remove('hidden'); }
+      visionProviderSelect.value = savedProvider;
+      if (savedGeminiKey) apiKeyGeminiInput.value = savedGeminiKey;
+      if (savedOpenaiKey) apiKeyOpenaiInput.value = savedOpenaiKey;
+      updateProviderFieldVisibility();
+      if (savedProvider !== 'none' && (savedGeminiKey || savedOpenaiKey)) keyIndicator.classList.remove('hidden');
       if (savedGst) gstSetting.value = savedGst;
       setPriceMode('selling');
       setTaxMode('unknown');
+      updateExportGate();
     });
+
+    function updateProviderFieldVisibility() {
+      const p = visionProviderSelect.value;
+      apiKeyGeminiInput.classList.toggle('hidden', p !== 'gemini');
+      apiKeyOpenaiInput.classList.toggle('hidden', p !== 'openai');
+    }
+    visionProviderSelect.addEventListener('change', updateProviderFieldVisibility);
 
     openSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
     closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
     saveKeyBtn.addEventListener('click', () => {
-      const key = apiKeyInput.value.trim();
+      const provider = visionProviderSelect.value;
+      const geminiKey = apiKeyGeminiInput.value.trim();
+      const openaiKey = apiKeyOpenaiInput.value.trim();
       localStorage.setItem('catalogtune_default_gst', gstSetting.value || '');
-      if (key) { localStorage.setItem('catalogtune_openai_key', key); keyIndicator.classList.remove('hidden'); }
-      else { localStorage.removeItem('catalogtune_openai_key'); keyIndicator.classList.add('hidden'); }
+      localStorage.setItem('catalogtune_vision_provider', provider);
+      if (geminiKey) localStorage.setItem('catalogtune_gemini_key', geminiKey); else localStorage.removeItem('catalogtune_gemini_key');
+      if (openaiKey) localStorage.setItem('catalogtune_openai_key', openaiKey); else localStorage.removeItem('catalogtune_openai_key');
+      const hasActiveKey = (provider === 'gemini' && geminiKey) || (provider === 'openai' && openaiKey);
+      keyIndicator.classList.toggle('hidden', !hasActiveKey);
       settingsModal.classList.add('hidden');
     });
 
@@ -720,6 +786,8 @@
 
     function showError(msg) { errorMessage.textContent = msg; errorBox.classList.remove('hidden'); }
     function hideError() { errorBox.classList.add('hidden'); }
+    function showNotice(msg) { document.getElementById('notice-message').textContent = msg; document.getElementById('notice-box').classList.remove('hidden'); }
+    function hideNotice() { document.getElementById('notice-box').classList.add('hidden'); }
 
     function guessUnit(name) {
       const s = name.toLowerCase();
@@ -773,6 +841,7 @@
 
     async function startProcessing(file) {
       hideError();
+      hideNotice();
       const brand = brandNameInput.value.trim();
       if (!brand) {
         showError('Please type the supplier\'s name first (Step 1) — it\'s what keeps items from this file organized and matched to their bills later.');
@@ -795,6 +864,7 @@
       if (file.type === 'application/pdf') await processPdfSpatial(file, brand);
       else await processImageFile(file, brand);
       filesProcessed++;
+      invalidateReviewConfirmation(); // new/changed data — force a fresh review before export
       finishProcessing();
       fileInput.value = ''; // lets the same filename be re-selected if needed
     }
@@ -876,33 +946,63 @@
       renderResults();
     }
 
+    let visionFailureCount = 0;
+
     async function processImageFile(file, brand) {
       pagesStat.textContent = '1/1';
       updateProgress(1, 1, 'Running OCR on image...');
-      const apiKey = apiKeyInput.value.trim() || localStorage.getItem('catalogtune_openai_key');
-      if (apiKey) {
+      const provider = localStorage.getItem('catalogtune_vision_provider') || 'none';
+      const geminiKey = apiKeyGeminiInput.value.trim() || localStorage.getItem('catalogtune_gemini_key');
+      const openaiKey = apiKeyOpenaiInput.value.trim() || localStorage.getItem('catalogtune_openai_key');
+      const activeKey = provider === 'gemini' ? geminiKey : provider === 'openai' ? openaiKey : null;
+
+      if (activeKey) {
         const reader = new FileReader();
         const base64Image = await new Promise((resolve, reject) => {
           reader.onload = () => resolve(reader.result.split(',')[1]);
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
-        const visionOk = await extractVisionOpenAI(base64Image, apiKey, brand);
+        const visionOk = provider === 'gemini'
+          ? await extractVisionGemini(base64Image, activeKey, brand)
+          : await extractVisionOpenAI(base64Image, activeKey, brand);
         if (!visionOk) {
-          // Network error, bad key, CORS block, etc. — don't just die with
-          // an error and no results. Fall back to the free on-page OCR so
-          // the upload still produces something.
-          showError('The AI reader couldn\'t be reached (no internet, or a key problem) — switched to the built-in scanner instead.');
-          updateProgress(0, 100, 'Vision failed — retrying with on-page OCR...');
+          // Network error, bad key, CORS block, etc. This is NOT an error
+          // state for the user — the tool recovers on its own and still
+          // produces a result, so this uses the calm blue notice, not the
+          // red error banner. Only the item count/quality after review is
+          // something that actually needs their attention.
+          visionFailureCount++;
+          updateProgress(0, 100, 'AI reader unavailable — reading with the built-in scanner instead...');
           await runTesseractOcr(file, brand);
+          if (visionFailureCount >= 2) {
+            showNotice('The AI reader has failed ' + visionFailureCount + ' times in a row — the built-in scanner is being used instead and is producing results fine. If you don\'t plan on fixing that key, switch the AI Reader to "Off" in Settings so uploads skip straight to the scanner (faster, no repeated failed attempt first).');
+          } else {
+            showNotice('The AI reader couldn\'t be reached, so the built-in scanner read this one instead — your items below are from that. Everything still worked; nothing to fix unless the AI key matters to you.');
+          }
         }
       } else {
         await runTesseractOcr(file, brand);
       }
     }
 
-    async function extractVisionOpenAI(base64Image, apiKey, brand) {
-      const prompt = `Extract every product/particular line from this price list image, including its price.
+    // Shared by both vision providers: turn a parsed {items, taxNote} payload
+    // into rows in the table. Keeping this in one place means OpenAI and
+    // Gemini can never drift into handling the same JSON shape differently.
+    function ingestVisionResult(content, brand) {
+      maybeAutoSetTaxMode(detectTaxInclusive(content.taxNote || ''));
+      (content.items || []).forEach(it => {
+        const price = parseFloat(String(it.price || '0').replace(/[^\d.]/g, ''));
+        if (!it.itemName) return;
+        const { name, code } = applyBrand(brand, it.itemName, '');
+        addItem({ category: it.category || 'Uncategorized', name, code, price: price || '', unit: guessUnit(it.itemName) });
+      });
+      itemsStat.textContent = items.length;
+      dupesStat.textContent = duplicatesSkipped;
+      renderResults();
+    }
+
+    const VISION_PROMPT = `Extract every product/particular line from this price list image, including its price.
 Some rows are grouped under a bold category header (e.g. "AMULYA 1MM") that applies to several rows below it —
 include that category text as part of "category" for each row under it, and include any sub-label
 (e.g. "SF/MF/DL", "HGF", "TEXTURE - ...") as part of "itemName". Ignore footer notes/disclaimers/terms when
@@ -910,6 +1010,8 @@ building item rows, but separately check: does the document say anywhere whether
 or not (e.g. "inclusive of all taxes", "+ GST extra", "exclusive of tax")? Report that in "taxNote" as the
 exact phrase you found, or "" if nothing like that appears anywhere on the page.
 Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...", "price": 123}], "taxNote": "..."}`;
+
+    async function extractVisionOpenAI(base64Image, apiKey, brand) {
       try {
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -918,28 +1020,51 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
             model: 'gpt-4o-mini',
             response_format: { type: 'json_object' },
             messages: [{ role: 'user', content: [
-              { type: 'text', text: prompt },
+              { type: 'text', text: VISION_PROMPT },
               { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}`, detail: 'high' } },
             ] }],
             temperature: 0,
           }),
         });
-        if (!response.ok) { showError('The AI reader didn\'t respond correctly (code ' + response.status + ') — switching to the built-in scanner instead.'); return false; }
+        if (!response.ok) return false; // caller shows one clear notice and falls back — no need to double-message here
         const data = await response.json();
         const content = JSON.parse(data.choices[0].message.content);
-        maybeAutoSetTaxMode(detectTaxInclusive(content.taxNote || ''));
-        (content.items || []).forEach(it => {
-          const price = parseFloat(String(it.price || '0').replace(/[^\d.]/g, ''));
-          if (!it.itemName) return;
-          const { name, code } = applyBrand(brand, it.itemName, '');
-          addItem({ category: it.category || 'Uncategorized', name, code, price: price || '', unit: guessUnit(it.itemName) });
-        });
-        itemsStat.textContent = items.length;
-        dupesStat.textContent = duplicatesSkipped;
-        renderResults();
+        ingestVisionResult(content, brand);
         return true;
       } catch (e) {
-        showError('The AI reader ran into a problem — switching to the built-in scanner instead. (' + e.message + ')');
+        return false; // network error, CORS block, etc. — caller handles the user-facing message
+      }
+    }
+
+    async function extractVisionGemini(base64Image, apiKey, brand) {
+      try {
+        // gemini-2.5-flash: strong image/OCR quality, free-tier eligible
+        // (roughly 250 requests/day as of testing) — plenty for a shop
+        // processing supplier lists one at a time. Model names on Google's
+        // side do change over time; if this ever 404s, the fallback to the
+        // built-in scanner kicks in automatically either way.
+        const response = await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+          {
+            method: 'POST',
+            headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [
+                { inline_data: { mime_type: 'image/jpeg', data: base64Image } },
+                { text: VISION_PROMPT },
+              ] }],
+              generationConfig: { temperature: 0, response_mime_type: 'application/json' },
+            }),
+          }
+        );
+        if (!response.ok) return false;
+        const data = await response.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) return false;
+        const content = JSON.parse(text);
+        ingestVisionResult(content, brand);
+        return true;
+      } catch (e) {
         return false;
       }
     }
@@ -1008,6 +1133,7 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
       const row = parseInt(input.dataset.row, 10);
       const field = input.dataset.field;
       items[row][field] = input.value;
+      invalidateReviewConfirmation();
     });
 
     tableBody.addEventListener('click', (e) => {
@@ -1016,11 +1142,13 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
       const row = parseInt(btn.dataset.row, 10);
       if (items[row] && items[row]._key) itemKeys.delete(items[row]._key);
       items.splice(row, 1);
+      invalidateReviewConfirmation();
       renderResults();
     });
 
     addRowBtn.addEventListener('click', () => {
       addItem({ category: 'Uncategorized', name: 'New Item', price: '' }, { forceUniqueKey: true });
+      invalidateReviewConfirmation();
       renderResults();
     });
 
@@ -1032,8 +1160,11 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
       duplicatesSkipped = 0;
       manualRowCounter = 0;
       filesProcessed = 0;
+      visionFailureCount = 0;
       dupesStat.textContent = '0';
       searchBox.value = '';
+      hideError(); hideNotice();
+      invalidateReviewConfirmation();
       renderResults();
       resultsCard.classList.add('hidden');
     });
@@ -1052,6 +1183,7 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
         if (gst) items[i].gst = gst;
       });
       bulkCategoryInput.value = ''; bulkUnitInput.value = ''; bulkGstInput.value = '';
+      invalidateReviewConfirmation();
       renderResults();
     });
 
@@ -1073,6 +1205,7 @@ Return STRICTLY a JSON object: {"items": [{"category": "...", "itemName": "...",
     // ---- Export: exact Accountune 27-column CSV ----
     downloadBtn.addEventListener('click', () => {
       if (!items.length) return;
+      if (!reviewCheckbox.checked) return; // defensive — the disabled attribute already blocks this in a real browser
       const gstDefault = localStorage.getItem('catalogtune_default_gst') || '';
       const records = items.map(row => {
         const rec = rowToAccountuneRecord(row, row.gst || gstDefault);
