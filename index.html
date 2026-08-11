@@ -726,13 +726,13 @@
   const wb = XLSX.read(buf, { type: 'array' });
   const sheet = wb.Sheets[wb.SheetNames[0]];
 
-  // Read as a raw 2D array to bypass top metadata/title rows
+  // Read as raw 2D array to bypass top title/metadata rows
   const rows2D = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
   existingCodes = new Set();
   existingNames = new Set();
   let loaded = 0;
 
-  // Find the row that actually contains the "Name" column header
+  // Find the exact row containing the "Name" header
   let headerRowIdx = -1;
   for (let i = 0; i < rows2D.length; i++) {
     const row = rows2D[i];
@@ -757,17 +757,14 @@
     const nameStr = String(row[nameColIdx]).trim();
     if (!nameStr || nameStr.toLowerCase() === 'name') continue;
 
-    // Extract any embedded bracket code like [5105] if present
     const bracketCode = extractBracketCode(nameStr);
     if (bracketCode) existingCodes.add(bracketCode);
 
-    // Extract dedicated code column if present
     if (codeColIdx !== -1 && row[codeColIdx]) {
       const cVal = String(row[codeColIdx]).trim().toLowerCase();
       if (cVal) existingCodes.add(cVal);
     }
 
-    // Normalize name (strips brackets, normalizes spaces and casing)
     const normName = normalizeNameForMatch(nameStr);
     if (normName) {
       existingNames.add(normName);
